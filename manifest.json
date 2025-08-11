@@ -1,9 +1,9 @@
 {
 	"author": "quantavil",
 	"description": "Find and replace text using regular expressions and do more.",
-	"id": "pro-regex",
+	"id": "super-regex",
 	"isDesktopOnly": false,
 	"minAppVersion": "1.0.0",
-	"name": "Pro Regex",
+	"name": "Super Regex",
 	"version": "1.0.0"
 }

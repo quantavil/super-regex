@@ -1,13 +1,17 @@
 {
-  "findText": "kimmi",
-  "replaceText": "qsdfr",
-  "useRegEx": true,
+  "findText": "profound",
+  "replaceText": "dkr",
+  "useRegEx": false,
   "selOnly": false,
   "caseInsensitive": false,
   "processLineBreak": false,
   "processTab": false,
   "prefillFind": false,
+  "allFiles": true,
+  "replaceEnabled": false,
+  "searchOnly": false,
+  "scope": "current",
+  "openAtStartup": true,
   "searchScope": "current",
-  "maxUndoHistory": 5,
-  "allFiles": true
+  "maxUndoHistory": 5
 }
