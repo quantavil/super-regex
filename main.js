@@ -23,15 +23,16 @@ const DEFAULT_SETTINGS = {
     processTab: false,
     prefillFind: false,
     allFiles: false,
-    replaceEnabled: true // New setting for toggling replace functionality
+    replaceEnabled: true,
+    wholeWord: false
 };
 const MAX_MATCHES = 20000;
 const MAX_HISTORY = 10;
 const VIEW_TYPE_REGEX_FIND_REPLACE = "regex-find-replace-view";
 
 const logThreshold = 9;
-const logger = (logString, logLevel = 0) => { 
-    if (logLevel <= logThreshold) console.log('RegexFiRe: ' + logString); 
+const logger = (logString, logLevel = 0) => {
+    if (logLevel <= logThreshold) console.log('RegexFiRe: ' + logString);
 };
 
 class RegexFindReplacePlugin extends obsidian.Plugin {
@@ -80,56 +81,56 @@ class RegexFindReplacePlugin extends obsidian.Plugin {
         });
     }
 
-    
+
     onunload() {
         logger('Bye!', 9);
         this.history = [];
         this.app.workspace.detachLeavesOfType(VIEW_TYPE_REGEX_FIND_REPLACE);
     }
-    
+
     activateView() {
         return __awaiter(this, void 0, void 0, function* () {
             this.app.workspace.detachLeavesOfType(VIEW_TYPE_REGEX_FIND_REPLACE);
-            
+
             yield this.app.workspace.getRightLeaf(false).setViewState({
                 type: VIEW_TYPE_REGEX_FIND_REPLACE,
                 active: true,
             });
-            
+
             this.app.workspace.revealLeaf(
                 this.app.workspace.getLeavesOfType(VIEW_TYPE_REGEX_FIND_REPLACE)[0]
             );
         });
     }
-    
+
     loadSettings() {
         return __awaiter(this, void 0, void 0, function* () {
             logger('Loading Settings...', 6);
             this.settings = Object.assign({}, DEFAULT_SETTINGS, yield this.loadData());
         });
     }
-    
+
     saveSettings() {
         return __awaiter(this, void 0, void 0, function* () {
             yield this.saveData(this.settings);
         });
     }
-    
+
     undoLast() {
         return __awaiter(this, void 0, void 0, function* () {
             if (!this.history || this.history.length === 0) {
                 new obsidian.Notice('Nothing to revert.');
                 return;
             }
-            
+
             const lastOp = this.history.pop();
             if (!lastOp || !lastOp.changes || lastOp.changes.length === 0) {
                 new obsidian.Notice('Nothing to revert.');
                 return;
             }
-            
+
             logger(`Reverting last operation from ${new Date(lastOp.timestamp).toLocaleString()}`, 6);
-            
+
             let revertedFiles = 0;
             for (const ch of lastOp.changes) {
                 try {
@@ -143,7 +144,7 @@ class RegexFindReplacePlugin extends obsidian.Plugin {
                     logger('Error reverting file ' + ch.path + ': ' + e.message, 1);
                 }
             }
-            
+
             new obsidian.Notice(`Reverted ${lastOp.count} replacement(s) in ${revertedFiles} file(s).`);
         });
     }
@@ -158,42 +159,51 @@ class RegexFindReplaceView extends obsidian.ItemView {
         this.pendingReplacements = new Map();
         this.searchTimeout = null;
     }
-    
+
     getViewType() {
         return VIEW_TYPE_REGEX_FIND_REPLACE;
     }
-    
+
     getDisplayText() {
         return "Find and Replace";
     }
-    
+
     getIcon() {
         return "search";
     }
-    
+
     onOpen() {
         return __awaiter(this, void 0, void 0, function* () {
             const container = this.containerEl.children[1];
             container.empty();
             container.addClass('regex-find-replace-view');
-            
+
             this.createUI(container);
             this.updateUI();
         });
     }
-    
+
     createUI(container) {
         // Search section
         const searchSection = container.createDiv('search-section');
-        
-        // Find input - changed to textarea
+
+        // Find input container with wrapper for buttons
         const findContainer = searchSection.createDiv('input-container');
         findContainer.createEl('label', { text: 'Find:' });
-        this.findInput = findContainer.createEl('textarea', {
+
+        // Create wrapper for input and buttons
+        const findInputWrapper = findContainer.createDiv('find-input-wrapper');
+
+        // Find input - textarea
+        this.findInput = findInputWrapper.createEl('textarea', {
             placeholder: 'Search pattern...',
             value: this.plugin.settings.findText
         });
-        
+
+        // Regex flags container (next to find input)
+        this.regexFlagsContainer = findInputWrapper.createDiv('regex-flags-container');
+        this.createRegexFlagButtons();
+
         // Auto-resize textarea
         const autoResize = () => {
             this.findInput.style.height = 'auto';
@@ -201,7 +211,7 @@ class RegexFindReplaceView extends obsidian.ItemView {
         };
         this.findInput.addEventListener('input', autoResize);
         setTimeout(autoResize, 0); // Initial resize
-        
+
         // Replace input
         const replaceContainer = searchSection.createDiv('input-container');
         replaceContainer.createEl('label', { text: 'Replace:' });
@@ -210,57 +220,52 @@ class RegexFindReplaceView extends obsidian.ItemView {
             placeholder: 'Replace with...',
             value: this.plugin.settings.replaceText
         });
-        
+
         // Options
         const optionsContainer = searchSection.createDiv('options-container');
-        
+
         this.createToggle(optionsContainer, 'Use RegEx', this.plugin.settings.useRegEx, (value) => {
             this.plugin.settings.useRegEx = value;
             this.plugin.saveSettings();
+            this.updateRegexFlagsVisibility();
             this.performSearch();
         });
-        
-        this.createToggle(optionsContainer, 'Case Insensitive', this.plugin.settings.caseInsensitive, (value) => {
-            this.plugin.settings.caseInsensitive = value;
-            this.plugin.saveSettings();
-            this.performSearch();
-        });
-        
+
         this.createToggle(optionsContainer, 'All Files', this.plugin.settings.allFiles, (value) => {
             this.plugin.settings.allFiles = value;
             this.plugin.saveSettings();
             this.performSearch();
         });
-        
+
         this.createToggle(optionsContainer, 'Enable Replace', this.plugin.settings.replaceEnabled, (value) => {
             this.plugin.settings.replaceEnabled = value;
             this.plugin.saveSettings();
             this.updateUI();
         });
-        
+
         // Action buttons
         const buttonContainer = searchSection.createDiv('button-container');
-        
+
         this.replaceAllBtn = buttonContainer.createEl('button', {
             text: 'Replace All',
             cls: 'mod-cta'
         });
-        
+
         this.replaceSelectedBtn = buttonContainer.createEl('button', {
             text: 'Replace Selected',
             cls: 'mod-warning'
         });
-        
+
         buttonContainer.createEl('button', {
             text: 'Undo',
             cls: 'mod-muted'
         }).onclick = () => this.plugin.undoLast();
-        
+
         // Results section
         this.resultsContainer = container.createDiv('results-section');
         this.resultsHeader = this.resultsContainer.createDiv('results-header');
         this.matchesContainer = this.resultsContainer.createDiv('matches-container');
-        
+
         // Event listeners for Find input (textarea)
         this.findInput.oninput = () => {
             clearTimeout(this.searchTimeout);
@@ -270,7 +275,7 @@ class RegexFindReplaceView extends obsidian.ItemView {
                 this.performSearch();
             }, 300);
         };
-    
+
         // Press Enter to search immediately (Ctrl/Cmd+Enter for multiline)
         this.findInput.onkeydown = (e) => {
             if (e.key === "Enter" && !e.ctrlKey && !e.metaKey) {
@@ -281,19 +286,18 @@ class RegexFindReplaceView extends obsidian.ItemView {
                 this.performSearch();
             }
         };
-        
+
         // Event listener for Replace input
         this.replaceInput.oninput = () => {
             this.plugin.settings.replaceText = this.replaceInput.value;
-                    this.plugin.saveSettings();
+            this.plugin.saveSettings();
             this.updatePreviews();
         };
-        
+
         this.replaceAllBtn.onclick = () => this.replaceAll();
         this.replaceSelectedBtn.onclick = () => this.replaceSelected();
     }
 
-    
     createToggle(container, label, value, onChange) {
         const toggleContainer = container.createDiv('toggle-container');
         const toggle = new obsidian.ToggleComponent(toggleContainer);
@@ -302,13 +306,72 @@ class RegexFindReplaceView extends obsidian.ItemView {
         toggleContainer.createEl('label', { text: label });
         return toggle;
     }
-    
+
+    createRegexFlagButtons() {
+        // Case insensitive button
+        this.caseButton = this.createFlagButton(
+            'Match case',
+            `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon uppercase-lowercase-a"><path d="M10.5 14L4.5 14"></path><path d="M12.5 18L7.5 6"></path><path d="M3 18L7.5 6"></path><path d="M15.9526 10.8322C15.9526 10.8322 16.6259 10 18.3832 10C20.1406 9.99999 20.9986 11.0587 20.9986 11.9682V16.7018C20.9986 17.1624 21.2815 17.7461 21.7151 18"></path><path d="M20.7151 13.5C18.7151 13.5 15.7151 14.2837 15.7151 16C15.7151 17.7163 17.5908 18.2909 18.7151 18C19.5635 17.7804 20.5265 17.3116 20.889 16.6199"></path></svg>`,
+            !this.plugin.settings.caseInsensitive,
+            (active) => {
+                this.plugin.settings.caseInsensitive = !active;
+                this.plugin.saveSettings();
+                this.performSearch();
+            }
+        );
+
+        // Whole word button
+        this.wholeWordButton = this.createFlagButton(
+            'Whole word',
+            `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><line x1="9" y1="7" x2="15" y2="7"/><line x1="9" y1="11" x2="15" y2="11"/><line x1="9" y1="15" x2="11" y2="15"/></svg>`,
+            this.plugin.settings.wholeWord,
+            (active) => {
+                this.plugin.settings.wholeWord = active;
+                this.plugin.saveSettings();
+                this.performSearch();
+            }
+        );
+
+        this.updateRegexFlagsVisibility();
+    }
+
+    createFlagButton(label, svgContent, initialActive, onChange) {
+        const button = this.regexFlagsContainer.createEl('button', {
+            cls: 'regex-flag-button' + (initialActive ? ' active' : ''),
+            attr: {
+                'aria-label': label
+            }
+        });
+
+        button.innerHTML = svgContent;
+
+        button.onclick = () => {
+            const isActive = button.hasClass('active');
+            if (isActive) {
+                button.removeClass('active');
+            } else {
+                button.addClass('active');
+            }
+            onChange(!isActive);
+        };
+
+        return button;
+    }
+
+    updateRegexFlagsVisibility() {
+        if (this.plugin.settings.useRegEx) {
+            this.wholeWordButton.style.display = 'flex';
+        } else {
+            this.wholeWordButton.style.display = 'none';
+        }
+    }
+
     updateUI() {
         const replaceEnabled = this.plugin.settings.replaceEnabled;
         this.replaceInput.disabled = !replaceEnabled;
         this.replaceAllBtn.disabled = !replaceEnabled;
         this.replaceSelectedBtn.disabled = !replaceEnabled;
-        
+
         if (!replaceEnabled) {
             this.replaceInput.addClass('disabled');
             this.replaceAllBtn.addClass('disabled');
@@ -318,6 +381,8 @@ class RegexFindReplaceView extends obsidian.ItemView {
             this.replaceAllBtn.removeClass('disabled');
             this.replaceSelectedBtn.removeClass('disabled');
         }
+
+        this.updateRegexFlagsVisibility();
     }
 
     performSearch() {
@@ -340,7 +405,14 @@ class RegexFindReplaceView extends obsidian.ItemView {
             if (useRegEx) {
                 try {
                     const flags = 'gm' + (caseInsensitive ? 'i' : '');
-                    searchRegex = new RegExp(searchText, flags);
+                    let pattern = searchText;
+
+                    // Apply whole word boundary if enabled
+                    if (this.plugin.settings.wholeWord) {
+                        pattern = `\\b${pattern}\\b`;
+                    }
+
+                    searchRegex = new RegExp(pattern, flags);
                 } catch (e) {
                     this.resultsHeader.setText('Invalid regular expression');
                     return;
@@ -385,7 +457,7 @@ class RegexFindReplaceView extends obsidian.ItemView {
         });
     }
 
-    
+
     searchInFile(file, searchText, searchRegex, maxMatches = MAX_MATCHES) {
         return __awaiter(this, void 0, void 0, function* () {
             const content = yield this.app.vault.read(file);
@@ -455,27 +527,27 @@ class RegexFindReplaceView extends obsidian.ItemView {
             return fileMatchCount;
         });
     }
-    
+
     renderMatches() {
         this.matchesContainer.empty();
-        
+
         let currentFile = null;
         let fileContainer = null;
-        
+
         for (const match of this.matches) {
             if (match.file !== currentFile) {
                 currentFile = match.file;
                 fileContainer = this.matchesContainer.createDiv('file-matches');
                 const fileHeader = fileContainer.createDiv('file-header');
-                fileHeader.createEl('span', { 
+                fileHeader.createEl('span', {
                     text: match.file.path,
                     cls: 'file-path'
                 });
             }
-            
+
             const matchEl = fileContainer.createDiv('match-item');
             matchEl.setAttribute('data-match-id', match.id);
-            
+
             // Checkbox for selective replacement
             if (this.plugin.settings.replaceEnabled) {
                 const checkbox = matchEl.createEl('input', {
@@ -489,22 +561,22 @@ class RegexFindReplaceView extends obsidian.ItemView {
                     } else {
                         this.pendingReplacements.set(match.id, false);
                     }
-                                    this.updatePreview(match);
+                    this.updatePreview(match);
                 };
             }
-            
+
             const lineContainer = matchEl.createDiv('line-container');
-            
+
             // Line number
             lineContainer.createEl('span', {
                 text: `${match.lineNum + 1}:`,
                 cls: 'line-number'
             });
-            
+
             // Match preview with highlighting
             const previewEl = lineContainer.createDiv('match-preview');
             this.renderMatchPreview(previewEl, match);
-            
+
             // Click to navigate
             matchEl.onclick = (e) => {
                 if (e.target.type !== 'checkbox') {
@@ -513,30 +585,30 @@ class RegexFindReplaceView extends obsidian.ItemView {
             };
         }
     }
-    
+
     renderMatchPreview(container, match) {
         const line = match.line;
         const start = match.match.start;
         const end = match.match.end;
-        
+
         // Show context around the match
         const contextStart = Math.max(0, start - 30);
         const contextEnd = Math.min(line.length, end + 30);
-        
+
         if (contextStart > 0) {
             container.createEl('span', { text: '...', cls: 'ellipsis' });
         }
-        
+
         container.createEl('span', {
             text: line.substring(contextStart, start),
             cls: 'context'
         });
-        
+
         const highlightEl = container.createEl('span', {
             text: match.match.text,
             cls: 'match-highlight'
         });
-        
+
         // Show replacement preview if enabled
         if (this.plugin.settings.replaceEnabled && this.pendingReplacements.get(match.id) !== false) {
             const replacement = this.getReplacementText(match.match.text);
@@ -550,20 +622,20 @@ class RegexFindReplaceView extends obsidian.ItemView {
                 });
             }
         }
-        
+
         container.createEl('span', {
             text: line.substring(end, contextEnd),
             cls: 'context'
         });
-        
+
         if (contextEnd < line.length) {
             container.createEl('span', { text: '...', cls: 'ellipsis' });
         }
     }
-    
+
     getReplacementText(matchText) {
         const replaceText = this.replaceInput.value;
-        
+
         if (this.plugin.settings.useRegEx) {
             const searchText = this.findInput.value;
             const flags = 'gm' + (this.plugin.settings.caseInsensitive ? 'i' : '');
@@ -577,13 +649,13 @@ class RegexFindReplaceView extends obsidian.ItemView {
             return replaceText;
         }
     }
-    
+
     updatePreviews() {
         for (const match of this.matches) {
             this.updatePreview(match);
         }
     }
-    
+
     updatePreview(match) {
         const matchEl = this.matchesContainer.querySelector(`[data-match-id="${match.id}"]`);
         if (matchEl) {
@@ -592,12 +664,12 @@ class RegexFindReplaceView extends obsidian.ItemView {
             this.renderMatchPreview(previewEl, match);
         }
     }
-    
+
     navigateToMatch(match) {
         return __awaiter(this, void 0, void 0, function* () {
             const leaf = this.app.workspace.getLeaf(false);
             yield leaf.openFile(match.file);
-            
+
             const view = leaf.view;
             if (view instanceof obsidian.MarkdownView) {
                 const editor = view.editor;
@@ -610,61 +682,61 @@ class RegexFindReplaceView extends obsidian.ItemView {
                     from: pos,
                     to: { line: match.lineNum, ch: match.match.end }
                 }, true);
-                
+
                 // Highlight the match temporarily
                 const mark = editor.markText(
                     pos,
                     { line: match.lineNum, ch: match.match.end },
                     { className: 'regex-find-highlight-temp' }
                 );
-                
+
                 setTimeout(() => mark.clear(), 2000);
             }
         });
     }
-    
+
     replaceAll() {
         return __awaiter(this, void 0, void 0, function* () {
             if (!this.plugin.settings.replaceEnabled || this.matches.length === 0) {
                 return;
             }
-            
+
             const replacements = this.matches.filter(m => this.pendingReplacements.get(m.id) !== false);
             if (replacements.length === 0) {
                 new obsidian.Notice('No replacements selected');
                 return;
             }
-            
+
             yield this.performReplacements(replacements);
         });
     }
-    
+
     replaceSelected() {
         return __awaiter(this, void 0, void 0, function* () {
             if (!this.plugin.settings.replaceEnabled || this.matches.length === 0) {
                 return;
             }
-            
+
             const selected = this.matches.filter(m => {
                 const checkbox = this.matchesContainer.querySelector(`[data-match-id="${m.id}"] .match-checkbox`);
                 return checkbox && checkbox.checked;
             });
-            
+
             if (selected.length === 0) {
                 new obsidian.Notice('No matches selected');
                 return;
             }
-            
+
             yield this.performReplacements(selected);
         });
     }
-    
+
     performReplacements(matches) {
         return __awaiter(this, void 0, void 0, function* () {
             const fileChanges = new Map();
             const changes = [];
             let totalReplacements = 0;
-            
+
             // Group matches by file
             for (const match of matches) {
                 if (!fileChanges.has(match.file)) {
@@ -672,13 +744,13 @@ class RegexFindReplaceView extends obsidian.ItemView {
                 }
                 fileChanges.get(match.file).push(match);
             }
-            
+
             // Process each file
             for (const [file, fileMatches] of fileChanges) {
                 try {
                     const original = yield this.app.vault.read(file);
                     let modified = original;
-                    
+
                     // Sort matches by position (reverse order to maintain indices)
                     fileMatches.sort((a, b) => {
                         if (a.lineNum !== b.lineNum) {
@@ -686,21 +758,21 @@ class RegexFindReplaceView extends obsidian.ItemView {
                         }
                         return b.match.start - a.match.start;
                     });
-                    
+
                     // Apply replacements
                     const lines = modified.split('\n');
                     for (const match of fileMatches) {
                         const line = lines[match.lineNum];
                         const replacement = this.getReplacementText(match.match.text);
-                        lines[match.lineNum] = 
+                        lines[match.lineNum] =
                             line.substring(0, match.match.start) +
                             replacement +
                             line.substring(match.match.end);
                         totalReplacements++;
                     }
-                    
+
                     modified = lines.join('\n');
-                    
+
                     if (modified !== original) {
                         yield this.app.vault.modify(file, modified);
                         changes.push({
@@ -713,7 +785,7 @@ class RegexFindReplaceView extends obsidian.ItemView {
                     logger('Error processing file: ' + file.path + ' -> ' + e.message, 1);
                 }
             }
-            
+
             // Save to history
             if (totalReplacements > 0 && changes.length > 0) {
                 const op = {
@@ -726,20 +798,20 @@ class RegexFindReplaceView extends obsidian.ItemView {
                     regexFlags: 'gm' + (this.plugin.settings.caseInsensitive ? 'i' : ''),
                     changes
                 };
-                
+
                 this.plugin.history.push(op);
                 if (this.plugin.history.length > MAX_HISTORY) {
                     this.plugin.history.shift();
                 }
             }
-            
+
             new obsidian.Notice(`Replaced ${totalReplacements} match${totalReplacements !== 1 ? 'es' : ''} in ${changes.length} file${changes.length !== 1 ? 's' : ''}`);
-            
+
             // Refresh search
             yield this.performSearch();
         });
     }
-    
+
     onClose() {
         // Nothing to clean up
     }
@@ -750,13 +822,13 @@ class RegexFindReplaceSettingTab extends obsidian.PluginSettingTab {
         super(app, plugin);
         this.plugin = plugin;
     }
-    
+
     display() {
         const { containerEl } = this;
         containerEl.empty();
-        
+
         containerEl.createEl('h4', { text: 'Regular Expression Settings' });
-        
+
         new obsidian.Setting(containerEl)
             .setName('Case Insensitive')
             .setDesc('When using regular expressions, apply the \'i\' modifier for case insensitive search')
@@ -767,9 +839,9 @@ class RegexFindReplaceSettingTab extends obsidian.PluginSettingTab {
                     this.plugin.settings.caseInsensitive = value;
                     yield this.plugin.saveSettings();
                 })));
-        
+
         containerEl.createEl('h4', { text: 'General Settings' });
-        
+
         new obsidian.Setting(containerEl)
             .setName('Process \\n as line break')
             .setDesc('When \'\\n\' is used in the replace field, a \'line break\' will be inserted accordingly')
@@ -780,7 +852,7 @@ class RegexFindReplaceSettingTab extends obsidian.PluginSettingTab {
                     this.plugin.settings.processLineBreak = value;
                     yield this.plugin.saveSettings();
                 })));
-        
+
         new obsidian.Setting(containerEl)
             .setName('Process \\t as tab')
             .setDesc('When \'\\t\' is used in the replace field, a \'tab\' will be inserted accordingly')
@@ -791,7 +863,7 @@ class RegexFindReplaceSettingTab extends obsidian.PluginSettingTab {
                     this.plugin.settings.processTab = value;
                     yield this.plugin.saveSettings();
                 })));
-        
+
         new obsidian.Setting(containerEl)
             .setName('Prefill Find Field')
             .setDesc('Copy the currently selected text (if any) into the \'Find\' text field')

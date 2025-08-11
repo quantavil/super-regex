@@ -383,3 +383,77 @@
 .regex-find-replace-view .match-item {
     contain: layout style paint;
 }
+
+/* Find input with buttons container */
+.regex-find-replace-view .find-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 4px;
+}
+
+.regex-find-replace-view .find-input-wrapper textarea {
+    flex: 1;
+}
+
+/* Regex flag buttons */
+.regex-find-replace-view .regex-flags-container {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    padding-top: 5px; /* Align with textarea top padding */
+}
+
+.regex-find-replace-view .regex-flag-button {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    cursor: pointer;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-muted);
+    transition: all 0.1s ease-in-out;
+}
+
+.regex-find-replace-view .regex-flag-button:hover {
+    background: var(--background-modifier-hover);
+    color: var(--text-normal);
+}
+
+.regex-find-replace-view .regex-flag-button.active {
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+    border-color: var(--interactive-accent);
+}
+
+.regex-find-replace-view .regex-flag-button svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* Tooltip for regex flags */
+.regex-find-replace-view .regex-flag-button[aria-label]:hover::after {
+    content: attr(aria-label);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-bottom: 5px;
+    padding: 4px 8px;
+    background: var(--background-secondary);
+    color: var(--text-normal);
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 10;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.regex-find-replace-view .regex-flag-button {
+    position: relative;
+}
