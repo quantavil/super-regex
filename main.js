@@ -40,14 +40,22 @@ class RegexFindReplacePlugin extends obsidian.Plugin {
             logger('Loading Plugin...', 9);
             this.history = [];
             yield this.loadSettings();
-            
+
+            // Register the custom view
             this.registerView(
                 VIEW_TYPE_REGEX_FIND_REPLACE,
                 (leaf) => new RegexFindReplaceView(leaf, this)
             );
-            
+
+            // Add the settings tab in Obsidian's settings panel
             this.addSettingTab(new RegexFindReplaceSettingTab(this.app, this));
-            
+
+            // Add an icon to the left-hand ribbon
+            this.addRibbonIcon("search", "Open Regex Find & Replace", () => {
+                this.activateView();
+            });
+
+            // Add command to open the panel from the command palette
             this.addCommand({
                 id: 'open-regex-find-replace',
                 name: 'Open Find and Replace panel',
@@ -55,7 +63,8 @@ class RegexFindReplacePlugin extends obsidian.Plugin {
                     this.activateView();
                 }
             });
-            
+
+            // Add command to undo last replacement
             this.addCommand({
                 id: 'obsidian-regex-replace-undo',
                 name: 'Regex Find/Replace: Revert last operation',
@@ -63,13 +72,14 @@ class RegexFindReplacePlugin extends obsidian.Plugin {
                     yield this.undoLast();
                 })
             });
-            
+
             // Try to activate the view on startup
             this.app.workspace.onLayoutReady(() => {
                 this.activateView();
             });
         });
     }
+
     
     onunload() {
         logger('Bye!', 9);
@@ -244,7 +254,7 @@ class RegexFindReplaceView extends obsidian.ItemView {
         this.resultsHeader = this.resultsContainer.createDiv('results-header');
         this.matchesContainer = this.resultsContainer.createDiv('matches-container');
         
-        // Event listeners
+        // Event listeners for Find input
         this.findInput.oninput = () => {
             clearTimeout(this.searchTimeout);
             this.searchTimeout = setTimeout(() => {
@@ -253,7 +263,19 @@ class RegexFindReplaceView extends obsidian.ItemView {
                 this.performSearch();
             }, 300);
         };
+    
+        // Press Enter to search immediately
+        this.findInput.onkeydown = (e) => {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                clearTimeout(this.searchTimeout);
+                this.plugin.settings.findText = this.findInput.value;
+                this.plugin.saveSettings();
+                this.performSearch();
+            }
+        };
         
+        // Event listener for Replace input
         this.replaceInput.oninput = () => {
             this.plugin.settings.replaceText = this.replaceInput.value;
             this.plugin.saveSettings();
@@ -263,6 +285,7 @@ class RegexFindReplaceView extends obsidian.ItemView {
         this.replaceAllBtn.onclick = () => this.replaceAll();
         this.replaceSelectedBtn.onclick = () => this.replaceSelected();
     }
+
     
     createToggle(container, label, value, onChange) {
         const toggleContainer = container.createDiv('toggle-container');
