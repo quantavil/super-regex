@@ -7,5 +7,7 @@
   "processLineBreak": false,
   "processTab": false,
   "prefillFind": false,
+  "searchScope": "current",
+  "maxUndoHistory": 5,
   "allFiles": true
 }
