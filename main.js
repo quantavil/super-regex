@@ -186,14 +186,21 @@ class RegexFindReplaceView extends obsidian.ItemView {
         // Search section
         const searchSection = container.createDiv('search-section');
         
-        // Find input
+        // Find input - changed to textarea
         const findContainer = searchSection.createDiv('input-container');
         findContainer.createEl('label', { text: 'Find:' });
-        this.findInput = findContainer.createEl('input', {
-            type: 'text',
+        this.findInput = findContainer.createEl('textarea', {
             placeholder: 'Search pattern...',
             value: this.plugin.settings.findText
         });
+        
+        // Auto-resize textarea
+        const autoResize = () => {
+            this.findInput.style.height = 'auto';
+            this.findInput.style.height = this.findInput.scrollHeight + 'px';
+        };
+        this.findInput.addEventListener('input', autoResize);
+        setTimeout(autoResize, 0); // Initial resize
         
         // Replace input
         const replaceContainer = searchSection.createDiv('input-container');
@@ -245,7 +252,7 @@ class RegexFindReplaceView extends obsidian.ItemView {
         });
         
         buttonContainer.createEl('button', {
-            text: 'Undo Last',
+            text: 'Undo',
             cls: 'mod-muted'
         }).onclick = () => this.plugin.undoLast();
         
@@ -254,7 +261,7 @@ class RegexFindReplaceView extends obsidian.ItemView {
         this.resultsHeader = this.resultsContainer.createDiv('results-header');
         this.matchesContainer = this.resultsContainer.createDiv('matches-container');
         
-        // Event listeners for Find input
+        // Event listeners for Find input (textarea)
         this.findInput.oninput = () => {
             clearTimeout(this.searchTimeout);
             this.searchTimeout = setTimeout(() => {
@@ -264,9 +271,9 @@ class RegexFindReplaceView extends obsidian.ItemView {
             }, 300);
         };
     
-        // Press Enter to search immediately
+        // Press Enter to search immediately (Ctrl/Cmd+Enter for multiline)
         this.findInput.onkeydown = (e) => {
-            if (e.key === "Enter") {
+            if (e.key === "Enter" && !e.ctrlKey && !e.metaKey) {
                 e.preventDefault();
                 clearTimeout(this.searchTimeout);
                 this.plugin.settings.findText = this.findInput.value;
@@ -278,7 +285,7 @@ class RegexFindReplaceView extends obsidian.ItemView {
         // Event listener for Replace input
         this.replaceInput.oninput = () => {
             this.plugin.settings.replaceText = this.replaceInput.value;
-            this.plugin.saveSettings();
+                    this.plugin.saveSettings();
             this.updatePreviews();
         };
         

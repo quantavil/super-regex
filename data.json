@@ -1,7 +1,7 @@
 {
-  "findText": "profound",
-  "replaceText": "dkr",
-  "useRegEx": false,
+  "findText": "profound| kill",
+  "replaceText": "dkrrgrg",
+  "useRegEx": true,
   "selOnly": false,
   "caseInsensitive": false,
   "processLineBreak": false,
