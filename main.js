@@ -26,7 +26,7 @@ const DEFAULT_SETTINGS = {
     replaceEnabled: true,
     wholeWord: false
 };
-const MAX_MATCHES = 10000;
+const MAX_MATCHES = 20000;
 const MAX_HISTORY = 10;
 const VIEW_TYPE_REGEX_FIND_REPLACE = "regex-find-replace-view";
 
