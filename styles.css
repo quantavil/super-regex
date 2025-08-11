@@ -442,3 +442,85 @@
 .regex-find-replace-view .regex-flag-button {
     position: relative;
 }
+
+/* Not found words styles */
+.regex-find-replace-view .not-found-words-container {
+    background: var(--background-secondary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 6px;
+    padding: 10px;
+    margin-bottom: 15px;
+}
+
+.regex-find-replace-view .not-found-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.regex-find-replace-view .not-found-label {
+    font-weight: 500;
+    color: var(--text-muted);
+    font-size: 0.9em;
+}
+
+.regex-find-replace-view .not-found-words-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    overflow: hidden;
+}
+
+.regex-find-replace-view .not-found-words {
+    font-family: var(--font-monospace);
+    font-size: 0.85em;
+    color: var(--text-error);
+    background: var(--background-primary);
+    padding: 6px 10px;
+    border-radius: 4px;
+    flex: 1;
+    white-space: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
+/* Scrollbar styling for not found words */
+.regex-find-replace-view .not-found-words::-webkit-scrollbar {
+    height: 6px;
+}
+
+.regex-find-replace-view .not-found-words::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.regex-find-replace-view .not-found-words::-webkit-scrollbar-thumb {
+    background: var(--background-modifier-border);
+    border-radius: 3px;
+}
+
+.regex-find-replace-view .not-found-words::-webkit-scrollbar-thumb:hover {
+    background: var(--background-modifier-border-hover);
+}
+
+.regex-find-replace-view .copy-not-found-btn {
+    padding: 4px 12px;
+    border-radius: 4px;
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+    border: none;
+    cursor: pointer;
+    font-size: 0.85em;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.regex-find-replace-view .copy-not-found-btn:hover {
+    background: var(--interactive-accent-hover);
+    transform: translateY(-1px);
+}
+
+.regex-find-replace-view .copy-not-found-btn:active {
+    transform: translateY(0);
+}

@@ -1,5 +1,5 @@
 {
-  "findText": "op",
+  "findText": "FIND|DINE|KIND",
   "replaceText": "slowx",
   "useRegEx": true,
   "selOnly": false,
@@ -8,7 +8,7 @@
   "processTab": false,
   "prefillFind": false,
   "allFiles": true,
-  "replaceEnabled": true,
+  "replaceEnabled": false,
   "wholeWord": false,
   "searchOnly": false,
   "scope": "current",

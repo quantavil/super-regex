@@ -385,6 +385,9 @@ class RegexFindReplaceView extends obsidian.ItemView {
         this.updateRegexFlagsVisibility();
     }
 
+
+    // Add this method to the RegexFindReplaceView class
+
     performSearch() {
         return __awaiter(this, void 0, void 0, function* () {
             this.matches = [];
@@ -408,6 +411,15 @@ class RegexFindReplaceView extends obsidian.ItemView {
             const useRegEx = this.plugin.settings.useRegEx;
             const caseInsensitive = this.plugin.settings.caseInsensitive;
             const allFiles = this.plugin.settings.allFiles;
+
+            // Track which words were found (for pipe-separated searches)
+            let searchWords = [];
+            let foundWords = new Set();
+
+            // Check if this is a pipe-separated search
+            if (searchText.includes('|')) {
+                searchWords = searchText.split('|').map(w => w.trim()).filter(w => w.length > 0);
+            }
 
             let searchRegex = null;
             if (useRegEx) {
@@ -437,7 +449,7 @@ class RegexFindReplaceView extends obsidian.ItemView {
                 });
 
                 for (const file of files) {
-                    const fileMatchCount = yield this.searchInFile(file, searchText, searchRegex, MAX_MATCHES - matchCount);
+                    const fileMatchCount = yield this.searchInFile(file, searchText, searchRegex, MAX_MATCHES - matchCount, foundWords);
                     matchCount += fileMatchCount;
 
                     if (matchCount >= MAX_MATCHES) {
@@ -448,7 +460,7 @@ class RegexFindReplaceView extends obsidian.ItemView {
             } else {
                 const activeFile = this.app.workspace.getActiveFile();
                 if (activeFile) {
-                    matchCount = yield this.searchInFile(activeFile, searchText, searchRegex, MAX_MATCHES);
+                    matchCount = yield this.searchInFile(activeFile, searchText, searchRegex, MAX_MATCHES, foundWords);
                     if (matchCount >= MAX_MATCHES) {
                         limitReached = true;
                     }
@@ -461,12 +473,64 @@ class RegexFindReplaceView extends obsidian.ItemView {
             }
             this.resultsHeader.setText(headerText);
 
+            // Display not found words if this was a pipe-separated search
+            if (searchWords.length > 0) {
+                this.displayNotFoundWords(searchWords, foundWords);
+            }
+
             this.renderMatches();
         });
     }
 
+    // Update the displayNotFoundWords method
+    displayNotFoundWords(searchWords, foundWords) {
+        const notFoundWords = searchWords.filter(word => !foundWords.has(word));
 
-    searchInFile(file, searchText, searchRegex, maxMatches = MAX_MATCHES) {
+        if (notFoundWords.length > 0) {
+            // Create or update the not-found container
+            let notFoundContainer = this.resultsContainer.querySelector('.not-found-words-container');
+            if (!notFoundContainer) {
+                notFoundContainer = this.resultsContainer.createDiv('not-found-words-container');
+                this.resultsContainer.insertBefore(notFoundContainer, this.matchesContainer);
+            } else {
+                notFoundContainer.empty();
+            }
+
+            // Add header
+            const header = notFoundContainer.createDiv('not-found-header');
+            header.createEl('span', {
+                text: 'Words not found:',
+                cls: 'not-found-label'
+            });
+
+            // Create container for words and copy button
+            const wordsContainer = notFoundContainer.createDiv('not-found-words-wrapper');
+
+            // Display the not found words
+            const wordsText = notFoundWords.join(' | ');
+            const wordsEl = wordsContainer.createEl('span', {
+                text: wordsText,
+                cls: 'not-found-words'
+            });
+
+            // Add copy button
+            const copyBtn = wordsContainer.createEl('button', {
+                text: 'Copy',
+                cls: 'copy-not-found-btn'
+            });
+
+            copyBtn.onclick = () => {
+                navigator.clipboard.writeText(wordsText).then(() => {
+                    new obsidian.Notice('Copied!');
+                    copyBtn.setText('Copied!');
+                    setTimeout(() => copyBtn.setText('Copy'), 2000);
+                });
+            };
+        }
+    }
+
+    // Update the searchInFile method to track found words
+    searchInFile(file, searchText, searchRegex, maxMatches = MAX_MATCHES, foundWords = null) {
         return __awaiter(this, void 0, void 0, function* () {
             const content = yield this.app.vault.read(file);
             const lines = content.split('\n');
@@ -485,6 +549,16 @@ class RegexFindReplaceView extends obsidian.ItemView {
                             end: match.index + match[0].length,
                             text: match[0]
                         });
+
+                        // Track found words for pipe-separated searches
+                        if (foundWords && searchText.includes('|')) {
+                            const searchWords = searchText.split('|').map(w => w.trim());
+                            for (const word of searchWords) {
+                                if (match[0].match(new RegExp(word, this.plugin.settings.caseInsensitive ? 'i' : ''))) {
+                                    foundWords.add(word);
+                                }
+                            }
+                        }
 
                         // Check if we've hit the limit
                         if (this.matches.length + matches.length >= maxMatches) {
