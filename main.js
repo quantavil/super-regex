@@ -253,7 +253,7 @@ class RegexFindReplaceView extends obsidian.ItemView {
 
         this.replaceSelectedBtn = buttonContainer.createEl('button', {
             text: 'Replace Selected',
-            cls: 'mod-warning'
+            cls: 'mod-cta'
         });
 
         buttonContainer.createEl('button', {

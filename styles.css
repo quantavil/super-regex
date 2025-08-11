@@ -114,16 +114,6 @@
     color: var(--text-on-accent);
 }
 
-/* Warning button */
-.regex-find-replace-view .button-container button.mod-warning {
-    background: transparent;
-    color: var(--text-normal);
-}
-
-.regex-find-replace-view .button-container button.mod-warning:hover {
-    background: var(--background-modifier-hover);
-}
-
 /* Muted button */
 .regex-find-replace-view .button-container button.mod-muted {
     color: var(--text-faint);
@@ -143,19 +133,14 @@
     background: var(--background-modifier-border);
 }
 
-.regex-find-replace-view .button-container button.mod-muted:hover {
-    color: var(--text-muted);
+.regex-find-replace-view .button-container button.mod-muted:not(.disabled):hover {
+    color: #dc3545;
     background: var(--background-modifier-hover);
 }
 
 .regex-find-replace-view .button-container button.disabled {
     opacity: 0.3;
     cursor: not-allowed;
-}
-
-.regex-find-replace-view .button-container button.disabled:hover {
-    background: transparent;
-    color: var(--text-muted);
 }
 
 /* Results section */

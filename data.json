@@ -1,6 +1,6 @@
 {
-  "findText": "   kie",
-  "replaceText": "",
+  "findText": "op",
+  "replaceText": "slowx",
   "useRegEx": true,
   "selOnly": false,
   "caseInsensitive": true,
