@@ -1,5 +1,5 @@
 {
-  "findText": "KITE|KD|DD|LOTE|MSK",
+  "findText": "HOR| LOT",
   "replaceText": "slowx",
   "useRegEx": true,
   "selOnly": false,
@@ -9,7 +9,7 @@
   "prefillFind": false,
   "allFiles": true,
   "replaceEnabled": false,
-  "wholeWord": false,
+  "wholeWord": true,
   "searchOnly": false,
   "scope": "current",
   "openAtStartup": true,
