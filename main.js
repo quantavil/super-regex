@@ -273,7 +273,7 @@ class RegexFindReplaceView extends obsidian.ItemView {
                 this.plugin.settings.findText = this.findInput.value;
                 this.plugin.saveSettings();
                 this.performSearch();
-            }, 2000); // Changed from 300ms to 2000ms
+            }, 500);
         };
 
         // Press Enter to search immediately (Ctrl/Cmd+Enter for multiline)
@@ -393,18 +393,17 @@ class RegexFindReplaceView extends obsidian.ItemView {
             this.matches = [];
             this.pendingReplacements.clear();
             this.matchesContainer.empty();
+            const notFoundContainer = this.resultsContainer.querySelector('.not-found-words-container');
+            if (notFoundContainer) {
+                notFoundContainer.remove();
+            }
 
             const searchText = this.findInput.value;
 
             // Check if search text is empty or only whitespace
-            if (!searchText || !searchText.trim()) {
+            if (!searchText.trim()) {
                 this.resultsHeader.setText('Enter a search pattern');
-                return;
-            }
-
-            // Additional check for single whitespace characters that could cause issues
-            if (searchText.length === 1 && /\s/.test(searchText)) {
-                this.resultsHeader.setText('Single whitespace characters are not allowed');
+                this.renderMatches(); // Clear matches display
                 return;
             }
 
@@ -429,7 +428,7 @@ class RegexFindReplaceView extends obsidian.ItemView {
 
                     // Apply whole word boundary if enabled
                     if (this.plugin.settings.wholeWord) {
-                        pattern = `\\b${pattern}\\b`;
+                        pattern = `\b${pattern}\b`;
                     }
 
                     searchRegex = new RegExp(pattern, flags);
@@ -485,10 +484,10 @@ class RegexFindReplaceView extends obsidian.ItemView {
     // Update the displayNotFoundWords method
     displayNotFoundWords(searchWords, foundWords) {
         const notFoundWords = searchWords.filter(word => !foundWords.has(word));
+        let notFoundContainer = this.resultsContainer.querySelector('.not-found-words-container');
 
         if (notFoundWords.length > 0) {
             // Create or update the not-found container
-            let notFoundContainer = this.resultsContainer.querySelector('.not-found-words-container');
             if (!notFoundContainer) {
                 notFoundContainer = this.resultsContainer.createDiv('not-found-words-container');
                 this.resultsContainer.insertBefore(notFoundContainer, this.matchesContainer);
@@ -526,6 +525,8 @@ class RegexFindReplaceView extends obsidian.ItemView {
                     setTimeout(() => copyBtn.setText('Copy'), 2000);
                 });
             };
+        } else if (notFoundContainer) {
+            notFoundContainer.remove();
         }
     }
 
