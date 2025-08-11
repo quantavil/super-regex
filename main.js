@@ -273,7 +273,7 @@ class RegexFindReplaceView extends obsidian.ItemView {
                 this.plugin.settings.findText = this.findInput.value;
                 this.plugin.saveSettings();
                 this.performSearch();
-            }, 300);
+            }, 2000); // Changed from 300ms to 2000ms
         };
 
         // Press Enter to search immediately (Ctrl/Cmd+Enter for multiline)
@@ -392,8 +392,16 @@ class RegexFindReplaceView extends obsidian.ItemView {
             this.matchesContainer.empty();
 
             const searchText = this.findInput.value;
-            if (!searchText) {
+
+            // Check if search text is empty or only whitespace
+            if (!searchText || !searchText.trim()) {
                 this.resultsHeader.setText('Enter a search pattern');
+                return;
+            }
+
+            // Additional check for single whitespace characters that could cause issues
+            if (searchText.length === 1 && /\s/.test(searchText)) {
+                this.resultsHeader.setText('Single whitespace characters are not allowed');
                 return;
             }
 
