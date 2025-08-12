@@ -1,526 +1,146 @@
 /* Main container */
-.regex-find-replace-view {
-    padding: 10px;
-    height: 100%;
-    overflow-y: auto;
-}
+.regex-find-replace-view { padding: 10px; height: 100%; overflow-y: auto; }
 
 /* Search section */
-.regex-find-replace-view .search-section {
-    border-bottom: 1px solid var(--background-modifier-border);
-    padding-bottom: 15px;
-    margin-bottom: 15px;
-}
+.regex-find-replace-view .search-section { border-bottom: 1px solid var(--background-modifier-border); padding-bottom: 15px; margin-bottom: 15px; }
 
-/* Input containers */
-.regex-find-replace-view .input-container {
-    margin-bottom: 10px;
-}
-
-.regex-find-replace-view .input-container label {
-    display: block;
-    margin-bottom: 5px;
-    font-weight: 500;
-    font-size: 0.9em;
-    color: var(--text-muted);
-}
-
-/* Textarea and input styles */
+/* Inputs */
+.regex-find-replace-view .input-container { margin-bottom: 10px; }
+.regex-find-replace-view .input-container label { display: block; margin-bottom: 5px; font-weight: 500; font-size: 0.9em; color: var(--text-muted); }
 .regex-find-replace-view .input-container textarea,
 .regex-find-replace-view .input-container input {
-    width: 100%;
-    padding: 5px 10px;
-    border: 1px solid var(--background-modifier-border);
-    border-radius: 4px;
-    background: var(--background-primary);
-    color: var(--text-normal);
-    font-family: inherit;
-    font-size: 0.9em;
-    resize: vertical;
+  width: 100%; padding: 5px 10px; border: 1px solid var(--background-modifier-border);
+  border-radius: 4px; background: var(--background-primary); color: var(--text-normal);
+  font-family: inherit; font-size: 0.9em; resize: vertical;
 }
-
-.regex-find-replace-view .input-container textarea {
-    min-height: 32px;
-    max-height: 120px;
-    line-height: 1.4;
-}
-
+.regex-find-replace-view .input-container textarea { min-height: 32px; max-height: 120px; line-height: 1.4; }
 .regex-find-replace-view .input-container textarea.disabled,
-.regex-find-replace-view .input-container input.disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
+.regex-find-replace-view .input-container input.disabled { opacity: 0.5; cursor: not-allowed; }
 
-/* Options container */
-.regex-find-replace-view .options-container {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 15px;
-    margin: 15px 0;
-}
+/* Options & toggles */
+.regex-find-replace-view .options-container { display: flex; flex-wrap: wrap; gap: 15px; margin: 15px 0; }
+.regex-find-replace-view .toggle-container { display: flex; align-items: center; gap: 5px; }
+.regex-find-replace-view .toggle-container label { font-size: 0.85em; color: var(--text-muted); }
 
-/* Toggle containers */
-.regex-find-replace-view .toggle-container {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-}
-
-.regex-find-replace-view .toggle-container label {
-    font-size: 0.85em;
-    color: var(--text-muted);
-}
-
-/* Button container */
-.regex-find-replace-view .button-container {
-    display: flex;
-    gap: 2px;
-    margin-top: 15px;
-    align-items: center;
-}
-
-/* Button styles */
+/* Buttons */
+.regex-find-replace-view .button-container { display: flex; gap: 2px; margin-top: 15px; align-items: center; }
 .regex-find-replace-view .button-container button {
-    padding: 4px 8px;
-    border-radius: 3px;
-    cursor: pointer;
-    font-size: 11px;
-    font-weight: 500;
-    border: none;
-    background: transparent;
-    color: var(--text-muted);
-    transition: all 0.05s ease-in-out;
-    white-space: nowrap;
-    line-height: 1;
+  padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 11px; font-weight: 500;
+  border: none; background: transparent; color: var(--text-muted);
+  transition: all 0.05s ease-in-out; white-space: nowrap; line-height: 1;
 }
-
-.regex-find-replace-view .button-container button:hover {
-    background: var(--background-modifier-hover);
-    color: var(--text-normal);
-}
-
-.regex-find-replace-view .button-container button:active {
-    background: var(--background-modifier-active-hover);
-}
-
-/* Primary button */
-.regex-find-replace-view .button-container button.mod-cta {
-    background: var(--background-modifier-border);
-    color: var(--text-normal);
-}
-
-.regex-find-replace-view .button-container button.mod-cta:hover {
-    background: var(--interactive-accent);
-    color: var(--text-on-accent);
-}
-
-/* Muted button */
-.regex-find-replace-view .button-container button.mod-muted {
-    color: var(--text-faint);
-    font-size: 10px;
-    margin-left: 6px;
-    position: relative;
-}
-
+.regex-find-replace-view .button-container button:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
+.regex-find-replace-view .button-container button:active { background: var(--background-modifier-active-hover); }
+.regex-find-replace-view .button-container button.mod-cta { background: var(--background-modifier-border); color: var(--text-normal); }
+.regex-find-replace-view .button-container button.mod-cta:hover { background: var(--interactive-accent); color: var(--text-on-accent); }
+.regex-find-replace-view .button-container button.mod-muted { color: var(--text-faint); font-size: 10px; margin-left: 6px; position: relative; }
 .regex-find-replace-view .button-container button.mod-muted::before {
-    content: '';
-    position: absolute;
-    left: -6px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 1px;
-    height: 14px;
-    background: var(--background-modifier-border);
+  content: ''; position: absolute; left: -6px; top: 50%; transform: translateY(-50%); width: 1px; height: 14px; background: var(--background-modifier-border);
 }
+.regex-find-replace-view .button-container button.mod-muted:not(.disabled):hover { color: #dc3545; background: var(--background-modifier-hover); }
+.regex-find-replace-view .button-container button.disabled { opacity: 0.3; cursor: not-allowed; }
 
-.regex-find-replace-view .button-container button.mod-muted:not(.disabled):hover {
-    color: #dc3545;
-    background: var(--background-modifier-hover);
-}
+/* Results */
+.regex-find-replace-view .results-section { height: calc(100% - 280px); overflow-y: auto; }
+.regex-find-replace-view .results-header { font-weight: 500; margin-bottom: 10px; padding: 5px 0; font-size: 0.9em; }
+.regex-find-replace-view .file-matches { margin-bottom: 20px; }
+.regex-find-replace-view .file-header { background: var(--background-secondary); padding: 5px 10px; margin-bottom: 5px; border-radius: 4px; font-weight: 500; font-size: 0.85em; }
+.regex-find-replace-view .match-item { display: flex; align-items: flex-start; padding: 5px 10px; cursor: pointer; border-radius: 4px; }
+.regex-find-replace-view .match-item:hover { background: var(--background-modifier-hover); }
+.regex-find-replace-view .match-checkbox { margin-right: 10px; margin-top: 3px; cursor: pointer; }
+.regex-find-replace-view .line-container { flex: 1; display: flex; align-items: flex-start; }
+.regex-find-replace-view .line-number { color: var(--text-muted); margin-right: 10px; min-width: 40px; font-size: 0.85em; }
+.regex-find-replace-view .match-preview { flex: 1; font-family: var(--font-monospace); font-size: 0.85em; line-height: 1.4; }
 
-.regex-find-replace-view .button-container button.disabled {
-    opacity: 0.3;
-    cursor: not-allowed;
-}
-
-/* Results section */
-.regex-find-replace-view .results-section {
-    height: calc(100% - 280px);
-    overflow-y: auto;
-}
-
-.regex-find-replace-view .results-header {
-    font-weight: 500;
-    margin-bottom: 10px;
-    padding: 5px 0;
-    font-size: 0.9em;
-}
-
-/* File matches */
-.regex-find-replace-view .file-matches {
-    margin-bottom: 20px;
-}
-
-.regex-find-replace-view .file-header {
-    background: var(--background-secondary);
-    padding: 5px 10px;
-    margin-bottom: 5px;
-    border-radius: 4px;
-    font-weight: 500;
-    font-size: 0.85em;
-}
-
-/* Match items */
-.regex-find-replace-view .match-item {
-    display: flex;
-    align-items: flex-start;
-    padding: 5px 10px;
-    cursor: pointer;
-    border-radius: 4px;
-}
-
-.regex-find-replace-view .match-item:hover {
-    background: var(--background-modifier-hover);
-}
-
-.regex-find-replace-view .match-checkbox {
-    margin-right: 10px;
-    margin-top: 3px;
-    cursor: pointer;
-}
-
-.regex-find-replace-view .line-container {
-    flex: 1;
-    display: flex;
-    align-items: flex-start;
-}
-
-.regex-find-replace-view .line-number {
-    color: var(--text-muted);
-    margin-right: 10px;
-    min-width: 40px;
-    font-size: 0.85em;
-}
-
-.regex-find-replace-view .match-preview {
-    flex: 1;
-    font-family: var(--font-monospace);
-    font-size: 0.85em;
-    line-height: 1.4;
-}
-
-/* Match highlighting */
-.regex-find-replace-view .match-highlight {
-    background: var(--text-highlight-bg);
-    color: var(--text-highlight-fg);
-    padding: 0 2px;
-    border-radius: 2px;
-}
-
-.regex-find-replace-view .match-highlight.has-replacement {
-    text-decoration: line-through;
-    opacity: 0.7;
-}
-
-.regex-find-replace-view .replacement-preview {
-    display: inline-block;
-    margin-left: 5px;
-}
-
-.regex-find-replace-view .replacement-preview .arrow {
-    color: var(--text-muted);
-    margin-right: 5px;
-}
-
+/* Highlighting */
+.regex-find-replace-view .match-highlight { background: var(--text-highlight-bg); color: var(--text-highlight-fg); padding: 0 2px; border-radius: 2px; }
+.regex-find-replace-view .match-highlight.has-replacement { text-decoration: line-through; opacity: 0.7; }
+.regex-find-replace-view .replacement-preview { display: inline-block; margin-left: 5px; }
+.regex-find-replace-view .replacement-preview .arrow { color: var(--text-muted); margin-right: 5px; }
 .regex-find-replace-view .replacement-preview .replacement-text {
-    background: var(--interactive-success);
-    color: var(--text-on-accent);
-    padding: 0 4px;
-    border-radius: 2px;
+  background: var(--interactive-success); color: var(--text-on-accent); padding: 0 4px; border-radius: 2px;
 }
+.regex-find-replace-view .context { color: var(--text-muted); }
+.regex-find-replace-view .ellipsis { color: var(--text-faint); margin: 0 2px; }
 
-.regex-find-replace-view .context {
-    color: var(--text-muted);
-}
+/* Editor highlight */
+.cm-s-obsidian .regex-find-highlight-temp { background-color: var(--text-highlight-bg); color: var(--text-highlight-fg); animation: pulse 0.5s ease-in-out 3; }
+@keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
 
-.regex-find-replace-view .ellipsis {
-    color: var(--text-faint);
-    margin: 0 2px;
-}
-
-/* Editor highlight animation */
-.cm-s-obsidian .regex-find-highlight-temp {
-    background-color: var(--text-highlight-bg);
-    color: var(--text-highlight-fg);
-    animation: pulse 0.5s ease-in-out 3;
-}
-
-@keyframes pulse {
-    0% { opacity: 1; }
-    50% { opacity: 0.5; }
-    100% { opacity: 1; }
-}
-
-/* Responsive design */
+/* Responsive */
 @media (max-width: 600px) {
-    .regex-find-replace-view .options-container {
-        flex-direction: column;
-        gap: 10px;
-    }
-    
-    .regex-find-replace-view .button-container {
-        flex-wrap: wrap;
-    }
+  .regex-find-replace-view .options-container { flex-direction: column; gap: 10px; }
+  .regex-find-replace-view .button-container { flex-wrap: wrap; }
 }
 
-/* Dark theme adjustments */
-.theme-dark .regex-find-replace-view .match-highlight {
-    background: rgba(255, 220, 100, 0.3);
-    color: inherit;
-}
+/* Dark tweaks */
+.theme-dark .regex-find-replace-view .match-highlight { background: rgba(255, 220, 100, 0.3); color: inherit; }
+.theme-dark .regex-find-replace-view .replacement-text { background: rgba(100, 255, 100, 0.3); color: inherit; }
 
-.theme-dark .regex-find-replace-view .replacement-text {
-    background: rgba(100, 255, 100, 0.3);
-    color: inherit;
-}
-
-/* Scrollbar styling */
+/* Scrollbars */
 .regex-find-replace-view .results-section::-webkit-scrollbar,
-.regex-find-replace-view .matches-container::-webkit-scrollbar {
-    width: 8px;
-}
-
+.regex-find-replace-view .matches-container::-webkit-scrollbar { width: 8px; }
 .regex-find-replace-view .results-section::-webkit-scrollbar-track,
-.regex-find-replace-view .matches-container::-webkit-scrollbar-track {
-    background: transparent;
-}
-
+.regex-find-replace-view .matches-container::-webkit-scrollbar-track { background: transparent; }
 .regex-find-replace-view .results-section::-webkit-scrollbar-thumb,
-.regex-find-replace-view .matches-container::-webkit-scrollbar-thumb {
-    background: var(--background-modifier-border);
-    border-radius: 4px;
-}
-
+.regex-find-replace-view .matches-container::-webkit-scrollbar-thumb { background: var(--background-modifier-border); border-radius: 4px; }
 .regex-find-replace-view .results-section::-webkit-scrollbar-thumb:hover,
-.regex-find-replace-view .matches-container::-webkit-scrollbar-thumb:hover {
-    background: var(--background-modifier-border-hover);
-}
+.regex-find-replace-view .matches-container::-webkit-scrollbar-thumb:hover { background: var(--background-modifier-border-hover); }
 
-/* State styles */
-.regex-find-replace-view .loading {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100px;
-    color: var(--text-muted);
-}
+/* States */
+.regex-find-replace-view .loading { display: flex; justify-content: center; align-items: center; height: 100px; color: var(--text-muted); }
+.regex-find-replace-view .empty-state { text-align: center; color: var(--text-muted); padding: 40px 20px; }
+.regex-find-replace-view .error-message { color: var(--text-error); padding: 10px; background: var(--background-modifier-error); border-radius: 4px; margin: 10px 0; }
+.regex-find-replace-view .file-path { font-size: 0.85em; opacity: 0.8; }
+.regex-find-replace-view .match-count { background: var(--interactive-accent); color: var(--text-on-accent); padding: 2px 8px; border-radius: 12px; font-size: 0.8em; margin-left: 10px; }
 
-.regex-find-replace-view .empty-state {
-    text-align: center;
-    color: var(--text-muted);
-    padding: 40px 20px;
-}
-
-.regex-find-replace-view .error-message {
-    color: var(--text-error);
-    padding: 10px;
-    background: var(--background-modifier-error);
-    border-radius: 4px;
-    margin: 10px 0;
-}
-
-.regex-find-replace-view .file-path {
-    font-size: 0.85em;
-    opacity: 0.8;
-}
-
-.regex-find-replace-view .match-count {
-    background: var(--interactive-accent);
-    color: var(--text-on-accent);
-    padding: 2px 8px;
-    border-radius: 12px;
-    font-size: 0.8em;
-    margin-left: 10px;
-}
-
-/* Focus styles */
-.regex-find-replace-view .match-item:focus {
-    outline: 2px solid var(--interactive-accent);
-    outline-offset: 2px;
-}
-
+/* Focus */
+.regex-find-replace-view .match-item:focus { outline: 2px solid var(--interactive-accent); outline-offset: 2px; }
 .regex-find-replace-view textarea:focus,
-.regex-find-replace-view input:focus {
-    outline: 2px solid var(--interactive-accent);
-    outline-offset: -2px;
-}
+.regex-find-replace-view input:focus { outline: 2px solid var(--interactive-accent); outline-offset: -2px; }
+.regex-find-replace-view button:focus { outline: 2px solid var(--interactive-accent); outline-offset: 2px; }
 
-.regex-find-replace-view button:focus {
-    outline: 2px solid var(--interactive-accent);
-    outline-offset: 2px;
-}
+/* Performance */
+.regex-find-replace-view .matches-container { contain: layout style; }
+.regex-find-replace-view .match-item { contain: layout style paint; }
 
-/* Performance optimization */
-.regex-find-replace-view .matches-container {
-    contain: layout style;
-}
+/* Find input + flags */
+.regex-find-replace-view .find-input-wrapper { position: relative; display: flex; align-items: flex-start; gap: 4px; }
+.regex-find-replace-view .find-input-wrapper textarea { flex: 1; }
 
-.regex-find-replace-view .match-item {
-    contain: layout style paint;
-}
-
-/* Find input with buttons container */
-.regex-find-replace-view .find-input-wrapper {
-    position: relative;
-    display: flex;
-    align-items: flex-start;
-    gap: 4px;
-}
-
-.regex-find-replace-view .find-input-wrapper textarea {
-    flex: 1;
-}
-
-/* Regex flag buttons */
-.regex-find-replace-view .regex-flags-container {
-    display: flex;
-    gap: 4px;
-    align-items: center;
-    padding-top: 5px; /* Align with textarea top padding */
-}
-
+/* Regex flags */
+.regex-find-replace-view .regex-flags-container { display: flex; gap: 4px; align-items: center; padding-top: 5px; }
 .regex-find-replace-view .regex-flag-button {
-    width: 28px;
-    height: 28px;
-    padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 4px;
-    cursor: pointer;
-    background: transparent;
-    border: 1px solid transparent;
-    color: var(--text-muted);
-    transition: all 0.1s ease-in-out;
+  width: 28px; height: 28px; padding: 0; display: flex; align-items: center; justify-content: center;
+  border-radius: 4px; cursor: pointer; background: transparent; border: 1px solid transparent; color: var(--text-muted);
+  transition: all 0.1s ease-in-out; position: relative;
 }
-
-.regex-find-replace-view .regex-flag-button:hover {
-    background: var(--background-modifier-hover);
-    color: var(--text-normal);
-}
-
-.regex-find-replace-view .regex-flag-button.active {
-    background: var(--interactive-accent);
-    color: var(--text-on-accent);
-    border-color: var(--interactive-accent);
-}
-
-.regex-find-replace-view .regex-flag-button svg {
-    width: 16px;
-    height: 16px;
-}
-
-/* Tooltip for regex flags */
+.regex-find-replace-view .regex-flag-button:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
+.regex-find-replace-view .regex-flag-button.active { background: var(--interactive-accent); color: var(--text-on-accent); border-color: var(--interactive-accent); }
+.regex-find-replace-view .regex-flag-button svg { width: 16px; height: 16px; }
 .regex-find-replace-view .regex-flag-button[aria-label]:hover::after {
-    content: attr(aria-label);
-    position: absolute;
-    bottom: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    margin-bottom: 5px;
-    padding: 4px 8px;
-    background: var(--background-secondary);
-    color: var(--text-normal);
-    border-radius: 4px;
-    font-size: 12px;
-    white-space: nowrap;
-    pointer-events: none;
-    z-index: 10;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  content: attr(aria-label); position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+  margin-bottom: 5px; padding: 4px 8px; background: var(--background-secondary); color: var(--text-normal);
+  border-radius: 4px; font-size: 12px; white-space: nowrap; pointer-events: none; z-index: 10;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
-.regex-find-replace-view .regex-flag-button {
-    position: relative;
-}
-
-/* Not found words styles */
-.regex-find-replace-view .not-found-words-container {
-    background: var(--background-secondary);
-    border: 1px solid var(--background-modifier-border);
-    border-radius: 6px;
-    padding: 10px;
-    margin-bottom: 15px;
-}
-
-.regex-find-replace-view .not-found-header {
-    display: flex;
-    align-items: center;
-    margin-bottom: 8px;
-}
-
-.regex-find-replace-view .not-found-label {
-    font-weight: 500;
-    color: var(--text-muted);
-    font-size: 0.9em;
-}
-
-.regex-find-replace-view .not-found-words-wrapper {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    overflow: hidden;
-}
-
+/* Not found words */
+.regex-find-replace-view .not-found-words-container { background: var(--background-secondary); border: 1px solid var(--background-modifier-border); border-radius: 6px; padding: 10px; margin-bottom: 15px; }
+.regex-find-replace-view .not-found-header { display: flex; align-items: center; margin-bottom: 8px; }
+.regex-find-replace-view .not-found-label { font-weight: 500; color: var(--text-muted); font-size: 0.9em; }
+.regex-find-replace-view .not-found-words-wrapper { display: flex; align-items: center; gap: 10px; overflow: hidden; }
 .regex-find-replace-view .not-found-words {
-    font-family: var(--font-monospace);
-    font-size: 0.85em;
-    color: var(--text-error);
-    background: var(--background-primary);
-    padding: 6px 10px;
-    border-radius: 4px;
-    flex: 1;
-    white-space: nowrap;
-    overflow-x: auto;
-    overflow-y: hidden;
+  font-family: var(--font-monospace); font-size: 0.85em; color: var(--text-error); background: var(--background-primary);
+  padding: 6px 10px; border-radius: 4px; flex: 1; white-space: nowrap; overflow-x: auto; overflow-y: hidden;
 }
-
-/* Scrollbar styling for not found words */
-.regex-find-replace-view .not-found-words::-webkit-scrollbar {
-    height: 6px;
-}
-
-.regex-find-replace-view .not-found-words::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.regex-find-replace-view .not-found-words::-webkit-scrollbar-thumb {
-    background: var(--background-modifier-border);
-    border-radius: 3px;
-}
-
-.regex-find-replace-view .not-found-words::-webkit-scrollbar-thumb:hover {
-    background: var(--background-modifier-border-hover);
-}
-
+.regex-find-replace-view .not-found-words::-webkit-scrollbar { height: 6px; }
+.regex-find-replace-view .not-found-words::-webkit-scrollbar-track { background: transparent; }
+.regex-find-replace-view .not-found-words::-webkit-scrollbar-thumb { background: var(--background-modifier-border); border-radius: 3px; }
+.regex-find-replace-view .not-found-words::-webkit-scrollbar-thumb:hover { background: var(--background-modifier-border-hover); }
 .regex-find-replace-view .copy-not-found-btn {
-    padding: 4px 12px;
-    border-radius: 4px;
-    background: var(--interactive-accent);
-    color: var(--text-on-accent);
-    border: none;
-    cursor: pointer;
-    font-size: 0.85em;
-    font-weight: 500;
-    transition: all 0.2s ease;
-    white-space: nowrap;
-    flex-shrink: 0;
+  padding: 4px 12px; border-radius: 4px; background: var(--interactive-accent);
+  color: var(--text-on-accent); border: none; cursor: pointer; font-size: 0.85em; font-weight: 500; transition: all 0.2s ease; white-space: nowrap; flex-shrink: 0;
 }
-
-.regex-find-replace-view .copy-not-found-btn:hover {
-    background: var(--interactive-accent-hover);
-    transform: translateY(-1px);
-}
-
-.regex-find-replace-view .copy-not-found-btn:active {
-    transform: translateY(0);
-}
+.regex-find-replace-view .copy-not-found-btn:hover { background: var(--interactive-accent-hover); transform: translateY(-1px); }
+.regex-find-replace-view .copy-not-found-btn:active { transform: translateY(0); }

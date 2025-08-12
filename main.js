@@ -1,17 +1,20 @@
-// main.js
 'use strict';
 
-var obsidian = require('obsidian');
+const {
+    Plugin,
+    ItemView,
+    ToggleComponent,
+    PluginSettingTab,
+    Setting,
+    TFile,
+    Notice,
+    MarkdownView
+} = require('obsidian');
 
-function __awaiter(thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-}
+/* ===========================
+   Constants / Utilities
+   =========================== */
+const VIEW_TYPE_REGEX_FIND_REPLACE = "regex-find-replace-view";
 
 const DEFAULT_SETTINGS = {
     findText: '',
@@ -26,61 +29,57 @@ const DEFAULT_SETTINGS = {
     replaceEnabled: true,
     wholeWord: false
 };
+
 const MAX_MATCHES = 10000;
 const MAX_HISTORY = 10;
-const VIEW_TYPE_REGEX_FIND_REPLACE = "regex-find-replace-view";
+const PAGE_SIZE = 1000;
 
 const logThreshold = 9;
-const logger = (logString, logLevel = 0) => {
-    if (logLevel <= logThreshold) console.log('RegexFiRe: ' + logString);
+const logger = (msg, lvl = 0) => { if (lvl <= logThreshold) console.log('RegexFiRe:', msg); };
+
+const debounce = (fn, delay = 300) => {
+    let t;
+    return (...args) => {
+        clearTimeout(t);
+        t = setTimeout(() => fn(...args), delay);
+    };
 };
 
-class RegexFindReplacePlugin extends obsidian.Plugin {
-    onload() {
-        return __awaiter(this, void 0, void 0, function* () {
-            logger('Loading Plugin...', 9);
-            this.history = [];
-            yield this.loadSettings();
+const buildRegex = (pattern, { caseInsensitive, wholeWord } = {}) => {
+    const flags = 'gm' + (caseInsensitive ? 'i' : '');
+    let patt = pattern;
+    if (wholeWord) patt = `\\b(?:${patt})\\b`;
+    return new RegExp(patt, flags);
+};
 
-            // Register the custom view
-            this.registerView(
-                VIEW_TYPE_REGEX_FIND_REPLACE,
-                (leaf) => new RegexFindReplaceView(leaf, this)
-            );
+/* ===========================
+   Plugin
+   =========================== */
+class RegexFindReplacePlugin extends Plugin {
+    async onload() {
+        logger('Loading Plugin...', 9);
+        this.history = [];
+        await this.loadSettings();
 
-            // Add the settings tab in Obsidian's settings panel
-            this.addSettingTab(new RegexFindReplaceSettingTab(this.app, this));
+        this.registerView(VIEW_TYPE_REGEX_FIND_REPLACE, (leaf) => new RegexFindReplaceView(leaf, this));
+        this.addSettingTab(new RegexFindReplaceSettingTab(this.app, this));
 
-            // Add an icon to the left-hand ribbon
-            this.addRibbonIcon("search", "Open Regex Find & Replace", () => {
-                this.activateView();
-            });
+        this.addRibbonIcon("search", "Open Regex Find & Replace", () => this.activateView());
 
-            // Add command to open the panel from the command palette
-            this.addCommand({
-                id: 'open-regex-find-replace',
-                name: 'Open Find and Replace panel',
-                callback: () => {
-                    this.activateView();
-                }
-            });
-
-            // Add command to undo last replacement
-            this.addCommand({
-                id: 'obsidian-regex-replace-undo',
-                name: 'Regex Find/Replace: Revert last operation',
-                callback: () => __awaiter(this, void 0, void 0, function* () {
-                    yield this.undoLast();
-                })
-            });
-
-            // Try to activate the view on startup
-            this.app.workspace.onLayoutReady(() => {
-                this.activateView();
-            });
+        this.addCommand({
+            id: 'open-regex-find-replace',
+            name: 'Open Find and Replace panel',
+            callback: () => this.activateView()
         });
-    }
 
+        this.addCommand({
+            id: 'obsidian-regex-replace-undo',
+            name: 'Regex Find/Replace: Revert last operation',
+            callback: async () => await this.undoLast()
+        });
+
+        this.app.workspace.onLayoutReady(() => this.activateView());
+    }
 
     onunload() {
         logger('Bye!', 9);
@@ -88,119 +87,101 @@ class RegexFindReplacePlugin extends obsidian.Plugin {
         this.app.workspace.detachLeavesOfType(VIEW_TYPE_REGEX_FIND_REPLACE);
     }
 
-    activateView() {
-        return __awaiter(this, void 0, void 0, function* () {
-            this.app.workspace.detachLeavesOfType(VIEW_TYPE_REGEX_FIND_REPLACE);
-
-            yield this.app.workspace.getRightLeaf(false).setViewState({
-                type: VIEW_TYPE_REGEX_FIND_REPLACE,
-                active: true,
-            });
-
-            this.app.workspace.revealLeaf(
-                this.app.workspace.getLeavesOfType(VIEW_TYPE_REGEX_FIND_REPLACE)[0]
-            );
-        });
+    async activateView() {
+        this.app.workspace.detachLeavesOfType(VIEW_TYPE_REGEX_FIND_REPLACE);
+        const leaf = this.app.workspace.getRightLeaf(false);
+        await leaf.setViewState({ type: VIEW_TYPE_REGEX_FIND_REPLACE, active: true });
+        this.app.workspace.revealLeaf(this.app.workspace.getLeavesOfType(VIEW_TYPE_REGEX_FIND_REPLACE)[0]);
     }
 
-    loadSettings() {
-        return __awaiter(this, void 0, void 0, function* () {
-            logger('Loading Settings...', 6);
-            this.settings = Object.assign({}, DEFAULT_SETTINGS, yield this.loadData());
-        });
+    async loadSettings() {
+        logger('Loading Settings...', 6);
+        this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
     }
 
-    saveSettings() {
-        return __awaiter(this, void 0, void 0, function* () {
-            yield this.saveData(this.settings);
-        });
+    async saveSettings() {
+        await this.saveData(this.settings);
     }
 
-    undoLast() {
-        return __awaiter(this, void 0, void 0, function* () {
-            if (!this.history || this.history.length === 0) {
-                new obsidian.Notice('Nothing to revert.');
-                return;
-            }
+    async undoLast() {
+        if (!this.history?.length) {
+            new Notice('Nothing to revert.');
+            return;
+        }
 
-            const lastOp = this.history.pop();
-            if (!lastOp || !lastOp.changes || lastOp.changes.length === 0) {
-                new obsidian.Notice('Nothing to revert.');
-                return;
-            }
+        const lastOp = this.history.pop();
+        if (!lastOp?.changes?.length) {
+            new Notice('Nothing to revert.');
+            return;
+        }
 
-            logger(`Reverting last operation from ${new Date(lastOp.timestamp).toLocaleString()}`, 6);
+        logger(`Reverting last operation from ${new Date(lastOp.timestamp).toLocaleString()}`, 6);
 
-            let revertedFiles = 0;
-            for (const ch of lastOp.changes) {
-                try {
-                    const af = this.app.vault.getAbstractFileByPath(ch.path);
-                    if (af && af instanceof obsidian.TFile) {
-                        yield this.app.vault.modify(af, ch.before);
-                        revertedFiles++;
-                        logger('Reverted file: ' + ch.path, 8);
-                    }
-                } catch (e) {
-                    logger('Error reverting file ' + ch.path + ': ' + e.message, 1);
+        let revertedFiles = 0;
+        for (const ch of lastOp.changes) {
+            try {
+                const af = this.app.vault.getAbstractFileByPath(ch.path);
+                if (af && af instanceof TFile) {
+                    await this.app.vault.modify(af, ch.before);
+                    revertedFiles++;
+                    logger('Reverted file: ' + ch.path, 8);
                 }
+            } catch (e) {
+                logger('Error reverting file ' + ch.path + ': ' + e.message, 1);
             }
+        }
 
-            new obsidian.Notice(`Reverted ${lastOp.count} replacement(s) in ${revertedFiles} file(s).`);
-        });
+        new Notice(`Reverted ${lastOp.count} replacement(s) in ${revertedFiles} file(s).`);
     }
 }
 
-class RegexFindReplaceView extends obsidian.ItemView {
+/* ===========================
+   View
+   =========================== */
+class RegexFindReplaceView extends ItemView {
     constructor(leaf, plugin) {
         super(leaf);
         this.plugin = plugin;
         this.matches = [];
         this.currentMatchIndex = 0;
         this.pendingReplacements = new Map();
-        this.searchTimeout = null;
+        this.debouncedSearch = debounce(() => this.performSearch(), 500);
+        this.renderLimit = PAGE_SIZE;
+        this.renderedCount = 0;
+        this.fileContainers = new Map();
+        this.initialBatchRendered = false;
+        this.searchInProgress = false;
     }
 
-    getViewType() {
-        return VIEW_TYPE_REGEX_FIND_REPLACE;
-    }
+    getViewType() { return VIEW_TYPE_REGEX_FIND_REPLACE; }
+    getDisplayText() { return "Find and Replace"; }
+    getIcon() { return "search"; }
 
-    getDisplayText() {
-        return "Find and Replace";
-    }
+    async onOpen() {
+        const container = this.containerEl.children[1];
+        container.empty();
+        container.addClass('regex-find-replace-view');
 
-    getIcon() {
-        return "search";
-    }
-
-    onOpen() {
-        return __awaiter(this, void 0, void 0, function* () {
-            const container = this.containerEl.children[1];
-            container.empty();
-            container.addClass('regex-find-replace-view');
-
-            this.createUI(container);
-            this.updateUI();
-        });
+        this.createUI(container);
+        this.updateUI();
     }
 
     createUI(container) {
         // Search section
         const searchSection = container.createDiv('search-section');
 
-        // Find input container with wrapper for buttons
+        // Find input container
         const findContainer = searchSection.createDiv('input-container');
         findContainer.createEl('label', { text: 'Find:' });
 
-        // Create wrapper for input and buttons
         const findInputWrapper = findContainer.createDiv('find-input-wrapper');
 
-        // Find input - textarea
         this.findInput = findInputWrapper.createEl('textarea', {
             placeholder: 'Search pattern...',
             value: this.plugin.settings.findText
         });
 
-        // Regex flags container (next to find input)
+        // Regex flags container
         this.regexFlagsContainer = findInputWrapper.createDiv('regex-flags-container');
         this.createRegexFlagButtons();
 
@@ -210,7 +191,7 @@ class RegexFindReplaceView extends obsidian.ItemView {
             this.findInput.style.height = this.findInput.scrollHeight + 'px';
         };
         this.findInput.addEventListener('input', autoResize);
-        setTimeout(autoResize, 0); // Initial resize
+        setTimeout(autoResize, 0);
 
         // Replace input
         const replaceContainer = searchSection.createDiv('input-container');
@@ -243,51 +224,43 @@ class RegexFindReplaceView extends obsidian.ItemView {
             this.updateUI();
         });
 
-        // Action buttons
+        // Buttons
         const buttonContainer = searchSection.createDiv('button-container');
 
-        this.replaceAllBtn = buttonContainer.createEl('button', {
-            text: 'Replace All',
-            cls: 'mod-cta'
-        });
+        this.replaceAllBtn = buttonContainer.createEl('button', { text: 'Replace All', cls: 'mod-cta' });
+        this.replaceSelectedBtn = buttonContainer.createEl('button', { text: 'Replace Selected', cls: 'mod-cta' });
+        this.deselectAllBtn = buttonContainer.createEl('button', { text: 'Deselect All', cls: 'mod-muted' });
+        this.deselectAllBtn.onclick = () => this.deselectAll();
+        buttonContainer.createEl('button', { text: 'Undo', cls: 'mod-muted' }).onclick = () => this.plugin.undoLast();
 
-        this.replaceSelectedBtn = buttonContainer.createEl('button', {
-            text: 'Replace Selected',
-            cls: 'mod-cta'
-        });
-
-        buttonContainer.createEl('button', {
-            text: 'Undo',
-            cls: 'mod-muted'
-        }).onclick = () => this.plugin.undoLast();
-
-        // Results section
+        // Results
         this.resultsContainer = container.createDiv('results-section');
         this.resultsHeader = this.resultsContainer.createDiv('results-header');
         this.matchesContainer = this.resultsContainer.createDiv('matches-container');
-
-        // Event listeners for Find input (textarea)
+        this.loadMoreContainer = this.resultsContainer.createDiv('load-more-container');
+        this.loadMoreContainer.style.textAlign = 'center';
+        this.loadMoreBtn = this.loadMoreContainer.createEl('button', {
+            text: 'Load more',
+            cls: 'mod-cta'
+        });
+        this.loadMoreBtn.onclick = () => this.loadMore();
+        this.updateLoadMoreVisibility();
+        // Events
         this.findInput.oninput = () => {
-            clearTimeout(this.searchTimeout);
-            this.searchTimeout = setTimeout(() => {
-                this.plugin.settings.findText = this.findInput.value;
-                this.plugin.saveSettings();
-                this.performSearch();
-            }, 500);
+            this.plugin.settings.findText = this.findInput.value;
+            this.plugin.saveSettings();
+            this.debouncedSearch();
         };
 
-        // Press Enter to search immediately (Ctrl/Cmd+Enter for multiline)
         this.findInput.onkeydown = (e) => {
             if (e.key === "Enter" && !e.ctrlKey && !e.metaKey) {
                 e.preventDefault();
-                clearTimeout(this.searchTimeout);
                 this.plugin.settings.findText = this.findInput.value;
                 this.plugin.saveSettings();
                 this.performSearch();
             }
         };
 
-        // Event listener for Replace input
         this.replaceInput.oninput = () => {
             this.plugin.settings.replaceText = this.replaceInput.value;
             this.plugin.saveSettings();
@@ -300,7 +273,7 @@ class RegexFindReplaceView extends obsidian.ItemView {
 
     createToggle(container, label, value, onChange) {
         const toggleContainer = container.createDiv('toggle-container');
-        const toggle = new obsidian.ToggleComponent(toggleContainer);
+        const toggle = new ToggleComponent(toggleContainer);
         toggle.setValue(value);
         toggle.onChange(onChange);
         toggleContainer.createEl('label', { text: label });
@@ -308,7 +281,7 @@ class RegexFindReplaceView extends obsidian.ItemView {
     }
 
     createRegexFlagButtons() {
-        // Case insensitive button
+        // Match case (active = case sensitive)
         this.caseButton = this.createFlagButton(
             'Match case',
             `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon uppercase-lowercase-a"><path d="M10.5 14L4.5 14"></path><path d="M12.5 18L7.5 6"></path><path d="M3 18L7.5 6"></path><path d="M15.9526 10.8322C15.9526 10.8322 16.6259 10 18.3832 10C20.1406 9.99999 20.9986 11.0587 20.9986 11.9682V16.7018C20.9986 17.1624 21.2815 17.7461 21.7151 18"></path><path d="M20.7151 13.5C18.7151 13.5 15.7151 14.2837 15.7151 16C15.7151 17.7163 17.5908 18.2909 18.7151 18C19.5635 17.7804 20.5265 17.3116 20.889 16.6199"></path></svg>`,
@@ -320,7 +293,7 @@ class RegexFindReplaceView extends obsidian.ItemView {
             }
         );
 
-        // Whole word button
+        // Whole word
         this.wholeWordButton = this.createFlagButton(
             'Whole word',
             `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><line x1="9" y1="7" x2="15" y2="7"/><line x1="9" y1="11" x2="15" y2="11"/><line x1="9" y1="15" x2="11" y2="15"/></svg>`,
@@ -338,27 +311,19 @@ class RegexFindReplaceView extends obsidian.ItemView {
     createFlagButton(label, svgContent, initialActive, onChange) {
         const button = this.regexFlagsContainer.createEl('button', {
             cls: 'regex-flag-button' + (initialActive ? ' active' : ''),
-            attr: {
-                'aria-label': label
-            }
+            attr: { 'aria-label': label }
         });
-
         button.innerHTML = svgContent;
-
         button.onclick = () => {
-            const isActive = button.hasClass('active');
-            if (isActive) {
-                button.removeClass('active');
-            } else {
-                button.addClass('active');
-            }
-            onChange(!isActive);
+            const nowActive = !button.hasClass('active');
+            button.toggleClass('active', nowActive);
+            onChange(nowActive);
         };
-
         return button;
     }
 
     updateRegexFlagsVisibility() {
+        // Case button always visible; whole-word only for regex mode
         if (this.plugin.settings.useRegEx) {
             this.wholeWordButton.style.display = 'flex';
         } else {
@@ -367,133 +332,107 @@ class RegexFindReplaceView extends obsidian.ItemView {
     }
 
     updateUI() {
-        const replaceEnabled = this.plugin.settings.replaceEnabled;
-        this.replaceInput.disabled = !replaceEnabled;
-        this.replaceAllBtn.disabled = !replaceEnabled;
-        this.replaceSelectedBtn.disabled = !replaceEnabled;
-
-        if (!replaceEnabled) {
-            this.replaceInput.addClass('disabled');
-            this.replaceAllBtn.addClass('disabled');
-            this.replaceSelectedBtn.addClass('disabled');
-        } else {
-            this.replaceInput.removeClass('disabled');
-            this.replaceAllBtn.removeClass('disabled');
-            this.replaceSelectedBtn.removeClass('disabled');
-        }
-
+        const enabled = this.plugin.settings.replaceEnabled;
+        const setDisabled = (el, state) => {
+            el.disabled = !enabled;
+            el.toggleClass('disabled', !enabled);
+        };
+        setDisabled(this.replaceInput);
+        setDisabled(this.replaceAllBtn);
+        setDisabled(this.replaceSelectedBtn);
+        setDisabled(this.deselectAllBtn);
         this.updateRegexFlagsVisibility();
     }
 
+    // Replace entire method
+    async performSearch() {
+        this.matches = [];
+        this.pendingReplacements.clear();
+        this.matchesContainer.empty();
+        this.fileContainers = new Map();
 
-    // Add this method to the RegexFindReplaceView class
+        const notFoundContainer = this.resultsContainer.querySelector('.not-found-words-container');
+        if (notFoundContainer) notFoundContainer.remove();
 
-    performSearch() {
-        return __awaiter(this, void 0, void 0, function* () {
-            this.matches = [];
-            this.pendingReplacements.clear();
-            this.matchesContainer.empty();
-            const notFoundContainer = this.resultsContainer.querySelector('.not-found-words-container');
-            if (notFoundContainer) {
-                notFoundContainer.remove();
-            }
+        this.resultsHeader.setText('Searching...');
+        this.initialBatchRendered = false;
+        this.renderLimit = PAGE_SIZE;
+        this.renderedCount = 0;
+        this.searchInProgress = true;
 
-            const searchText = this.findInput.value;
+        const searchText = this.findInput.value || '';
 
-            // Check if search text is empty or only whitespace
-            if (!searchText.trim()) {
-                this.resultsHeader.setText('Enter a search pattern');
-                this.renderMatches(); // Clear matches display
-                return;
-            }
+        if (!searchText.trim()) {
+            this.resultsHeader.setText('Enter a search pattern');
+            this.updateLoadMoreVisibility();
+            return;
+        }
 
-            const useRegEx = this.plugin.settings.useRegEx;
-            const caseInsensitive = this.plugin.settings.caseInsensitive;
-            const allFiles = this.plugin.settings.allFiles;
+        const { useRegEx, caseInsensitive, allFiles, wholeWord } = this.plugin.settings;
 
-            // Track which words were found (for pipe-separated searches)
-            let searchWords = [];
-            let foundWords = new Set();
+        // Pipe-separated tracking
+        const isPipeSearch = searchText.includes('|');
+        const searchWords = isPipeSearch ? searchText.split('|').map(w => w.trim()).filter(Boolean) : [];
+        const foundWords = isPipeSearch ? new Set() : null;
 
-            // Check if this is a pipe-separated search
-            if (searchText.includes('|')) {
-                searchWords = searchText.split('|').map(w => w.trim()).filter(w => w.length > 0);
-            }
-
-            let searchRegex = null;
-            if (useRegEx) {
-                try {
-                    const flags = 'gm' + (caseInsensitive ? 'i' : '');
-                    let pattern = searchText;
-
-                    // Apply whole word boundary if enabled
-                    if (this.plugin.settings.wholeWord) {
-                        pattern = `\b${pattern}\b`;
-                    }
-
-                    searchRegex = new RegExp(pattern, flags);
-
-                    // Test if regex can match empty string and prevent it
-                    if (searchRegex.test('')) {
-                        this.resultsHeader.setText('Pattern matches empty string - please refine your search');
-                        return;
-                    }
-                } catch (e) {
-                    this.resultsHeader.setText('Invalid regular expression');
+        let searchRegex = null;
+        if (useRegEx) {
+            try {
+                searchRegex = buildRegex(searchText, { caseInsensitive, wholeWord });
+                if (searchRegex.test('')) {
+                    this.resultsHeader.setText('Pattern matches empty string - please refine your search');
+                    this.searchInProgress = false;
                     return;
                 }
+            } catch (e) {
+                this.resultsHeader.setText('Invalid regular expression');
+                this.searchInProgress = false;
+                return;
             }
+        }
 
-            let matchCount = 0;
-            let limitReached = false;
+        let matchCount = 0;
+        let limitReached = false;
 
-            if (allFiles) {
-                // Sort files by folder structure (path)
-                const files = this.app.vault.getMarkdownFiles().sort((a, b) => {
-                    return a.path.localeCompare(b.path);
-                });
-
-                for (const file of files) {
-                    const fileMatchCount = yield this.searchInFile(file, searchText, searchRegex, MAX_MATCHES - matchCount, foundWords);
-                    matchCount += fileMatchCount;
-
-                    if (matchCount >= MAX_MATCHES) {
-                        limitReached = true;
-                        break;
-                    }
-                }
-            } else {
-                const activeFile = this.app.workspace.getActiveFile();
-                if (activeFile) {
-                    matchCount = yield this.searchInFile(activeFile, searchText, searchRegex, MAX_MATCHES, foundWords);
-                    if (matchCount >= MAX_MATCHES) {
-                        limitReached = true;
-                    }
-                }
+        if (allFiles) {
+            const files = this.app.vault.getMarkdownFiles().sort((a, b) => a.path.localeCompare(b.path));
+            for (const file of files) {
+                const fileMatchCount = await this.searchInFile(file, searchText, searchRegex, MAX_MATCHES - matchCount, foundWords);
+                matchCount += fileMatchCount;
+                if (matchCount >= MAX_MATCHES) { limitReached = true; break; }
+                // Yield to UI so it stays responsive
+                await new Promise(resolve => requestAnimationFrame(resolve));
             }
-
-            let headerText = `Found ${this.matches.length} match${this.matches.length !== 1 ? 'es' : ''}`;
-            if (limitReached) {
-                headerText += ` (limit of ${MAX_MATCHES.toLocaleString()} reached)`;
+        } else {
+            const activeFile = this.app.workspace.getActiveFile();
+            if (activeFile) {
+                matchCount = await this.searchInFile(activeFile, searchText, searchRegex, MAX_MATCHES, foundWords);
+                if (matchCount >= MAX_MATCHES) limitReached = true;
             }
-            this.resultsHeader.setText(headerText);
+        }
 
-            // Display not found words if this was a pipe-separated search
-            if (searchWords.length > 0) {
-                this.displayNotFoundWords(searchWords, foundWords);
-            }
+        // Finalize UI
+        this.searchInProgress = false;
 
-            this.renderMatches();
-        });
+        let headerText = `Found ${this.matches.length} match${this.matches.length !== 1 ? 'es' : ''}`;
+        if (limitReached) headerText += ` (limit of ${MAX_MATCHES.toLocaleString()} reached)`;
+        this.resultsHeader.setText(headerText);
+
+        if (!this.initialBatchRendered) {
+            this.renderLimit = Math.min(PAGE_SIZE, this.matches.length);
+            this.renderMatches({ append: false });
+        } else {
+            this.updateLoadMoreVisibility();
+        }
+
+        if (isPipeSearch) this.displayNotFoundWords(searchWords, foundWords);
     }
 
-    // Update the displayNotFoundWords method
     displayNotFoundWords(searchWords, foundWords) {
-        const notFoundWords = searchWords.filter(word => !foundWords.has(word));
+        const notFoundWords = searchWords.filter(w => !foundWords.has(w));
         let notFoundContainer = this.resultsContainer.querySelector('.not-found-words-container');
 
         if (notFoundWords.length > 0) {
-            // Create or update the not-found container
             if (!notFoundContainer) {
                 notFoundContainer = this.resultsContainer.createDiv('not-found-words-container');
                 this.resultsContainer.insertBefore(notFoundContainer, this.matchesContainer);
@@ -501,32 +440,17 @@ class RegexFindReplaceView extends obsidian.ItemView {
                 notFoundContainer.empty();
             }
 
-            // Add header
             const header = notFoundContainer.createDiv('not-found-header');
-            header.createEl('span', {
-                text: 'Words not found:',
-                cls: 'not-found-label'
-            });
+            header.createEl('span', { text: 'Words not found:', cls: 'not-found-label' });
 
-            // Create container for words and copy button
             const wordsContainer = notFoundContainer.createDiv('not-found-words-wrapper');
-
-            // Display the not found words
             const wordsText = notFoundWords.join(' | ');
-            const wordsEl = wordsContainer.createEl('span', {
-                text: wordsText,
-                cls: 'not-found-words'
-            });
+            wordsContainer.createEl('span', { text: wordsText, cls: 'not-found-words' });
 
-            // Add copy button
-            const copyBtn = wordsContainer.createEl('button', {
-                text: 'Copy',
-                cls: 'copy-not-found-btn'
-            });
-
+            const copyBtn = wordsContainer.createEl('button', { text: 'Copy', cls: 'copy-not-found-btn' });
             copyBtn.onclick = () => {
                 navigator.clipboard.writeText(wordsText).then(() => {
-                    new obsidian.Notice('Copied!');
+                    new Notice('Copied!');
                     copyBtn.setText('Copied!');
                     setTimeout(() => copyBtn.setText('Copy'), 2000);
                 });
@@ -536,377 +460,304 @@ class RegexFindReplaceView extends obsidian.ItemView {
         }
     }
 
-    // Update the searchInFile method to track found words
-    searchInFile(file, searchText, searchRegex, maxMatches = MAX_MATCHES, foundWords = null) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const content = yield this.app.vault.read(file);
-            const lines = content.split('\n');
-            let fileMatchCount = 0;
+    // Replace entire method
+    async searchInFile(file, searchText, searchRegex, maxMatches = MAX_MATCHES, foundWords = null) {
+        const content = await this.app.vault.read(file);
+        const lines = content.split('\n');
+        let fileMatchCount = 0;
 
-            for (let lineNum = 0; lineNum < lines.length; lineNum++) {
-                const line = lines[lineNum];
-                let matches = [];
+        const isPipe = searchText.includes('|');
+        const pipeWords = isPipe ? searchText.split('|').map(w => w.trim()).filter(Boolean) : null;
 
-                if (searchRegex) {
-                    searchRegex.lastIndex = 0;
-                    let match;
-                    while ((match = searchRegex.exec(line)) !== null) {
-                        matches.push({
-                            start: match.index,
-                            end: match.index + match[0].length,
-                            text: match[0]
-                        });
+        for (let lineNum = 0; lineNum < lines.length; lineNum++) {
+            const line = lines[lineNum];
+            const lineMatches = [];
 
-                        // Track found words for pipe-separated searches
-                        if (foundWords && searchText.includes('|')) {
-                            const searchWords = searchText.split('|').map(w => w.trim());
-                            for (const word of searchWords) {
-                                if (match[0].match(new RegExp(word, this.plugin.settings.caseInsensitive ? 'i' : ''))) {
-                                    foundWords.add(word);
-                                }
-                            }
-                        }
+            if (searchRegex) {
+                searchRegex.lastIndex = 0;
+                let match;
+                while ((match = searchRegex.exec(line)) !== null) {
+                    lineMatches.push({ start: match.index, end: match.index + match[0].length, text: match[0] });
 
-                        // Check if we've hit the limit
-                        if (this.matches.length + matches.length >= maxMatches) {
-                            break;
+                    if (foundWords && isPipe && pipeWords?.length) {
+                        for (const word of pipeWords) {
+                            try {
+                                const re = new RegExp(word, this.plugin.settings.caseInsensitive ? 'i' : '');
+                                if (re.test(match[0])) foundWords.add(word);
+                            } catch (_) { /* ignore */ }
                         }
                     }
-                } else {
-                    let index = 0;
-                    const searchLower = this.plugin.settings.caseInsensitive ? searchText.toLowerCase() : searchText;
-                    const lineLower = this.plugin.settings.caseInsensitive ? line.toLowerCase() : line;
-
-                    while ((index = lineLower.indexOf(searchLower, index)) !== -1) {
-                        matches.push({
-                            start: index,
-                            end: index + searchText.length,
-                            text: line.substring(index, index + searchText.length)
-                        });
-                        index += searchText.length;
-
-                        // Check if we've hit the limit
-                        if (this.matches.length + matches.length >= maxMatches) {
-                            break;
-                        }
-                    }
+                    if (this.matches.length + lineMatches.length >= maxMatches) break;
                 }
-
-                for (const match of matches) {
-                    if (this.matches.length >= maxMatches) {
-                        return fileMatchCount;
-                    }
-
-                    this.matches.push({
-                        file: file,
-                        lineNum: lineNum,
-                        line: line,
-                        match: match,
-                        id: `${file.path}-${lineNum}-${match.start}`
-                    });
-                    fileMatchCount++;
-                }
-
-                // Early exit if we've reached the limit
-                if (this.matches.length >= maxMatches) {
-                    break;
+            } else {
+                const ci = this.plugin.settings.caseInsensitive;
+                const query = ci ? searchText.toLowerCase() : searchText;
+                const src = ci ? line.toLowerCase() : line;
+                let index = 0;
+                while ((index = src.indexOf(query, index)) !== -1) {
+                    lineMatches.push({ start: index, end: index + searchText.length, text: line.substring(index, index + searchText.length) });
+                    index += searchText.length;
+                    if (this.matches.length + lineMatches.length >= maxMatches) break;
                 }
             }
 
-            return fileMatchCount;
-        });
+            for (const m of lineMatches) {
+                if (this.matches.length >= maxMatches) return fileMatchCount;
+
+                this.matches.push({ file, lineNum, line, match: m, id: `${file.path}-${lineNum}-${m.start}` });
+                fileMatchCount++;
+
+                // Render the first page as soon as we have it
+                this.maybeRenderInitialBatch();
+            }
+
+            if (this.matches.length >= maxMatches) break;
+        }
+
+        return fileMatchCount;
     }
 
-    renderMatches() {
-        this.matchesContainer.empty();
+    renderMatches({ append = false } = {}) {
+        if (!append) {
+            this.matchesContainer.empty();
+            this.fileContainers = new Map();
+            this.renderedCount = 0;
+        }
+        const end = Math.min(this.renderLimit, this.matches.length);
+        this.renderMatchesSlice(this.renderedCount, end);
+        this.renderedCount = end;
+        this.updateLoadMoreVisibility();
+    }
 
-        let currentFile = null;
-        let fileContainer = null;
+    // Add
+    deselectAll() {
+        if (!this.plugin.settings.replaceEnabled) return;
+        for (const m of this.matches) this.pendingReplacements.set(m.id, false);
+        this.matchesContainer.querySelectorAll('.match-checkbox').forEach(cb => { cb.checked = false; });
+        this.updatePreviews();
+    }
 
-        for (const match of this.matches) {
-            if (match.file !== currentFile) {
-                currentFile = match.file;
-                fileContainer = this.matchesContainer.createDiv('file-matches');
-                const fileHeader = fileContainer.createDiv('file-header');
-                fileHeader.createEl('span', {
-                    text: match.file.path,
-                    cls: 'file-path'
-                });
-            }
+    // Add
+    loadMore() {
+        const start = this.renderedCount;
+        const end = Math.min(start + PAGE_SIZE, this.matches.length);
+        this.renderMatchesSlice(start, end);
+        this.renderedCount = end;
+        this.updateLoadMoreVisibility();
+    }
+
+    // Add
+    ensureFileContainer(file) {
+        const key = file.path;
+        if (this.fileContainers.has(key)) return this.fileContainers.get(key);
+        const fileContainer = this.matchesContainer.createDiv('file-matches');
+        const fileHeader = fileContainer.createDiv('file-header');
+        fileHeader.createEl('span', { text: key, cls: 'file-path' });
+        this.fileContainers.set(key, fileContainer);
+        return fileContainer;
+    }
+
+    // Add
+    renderMatchesSlice(start, end) {
+        for (let i = start; i < end; i++) {
+            const match = this.matches[i];
+            const fileContainer = this.ensureFileContainer(match.file);
 
             const matchEl = fileContainer.createDiv('match-item');
             matchEl.setAttribute('data-match-id', match.id);
 
-            // Checkbox for selective replacement
             if (this.plugin.settings.replaceEnabled) {
-                const checkbox = matchEl.createEl('input', {
-                    type: 'checkbox',
-                    cls: 'match-checkbox'
-                });
+                const checkbox = matchEl.createEl('input', { type: 'checkbox', cls: 'match-checkbox' });
                 checkbox.checked = this.pendingReplacements.get(match.id) !== false;
                 checkbox.onchange = () => {
-                    if (checkbox.checked) {
-                        this.pendingReplacements.delete(match.id);
-                    } else {
-                        this.pendingReplacements.set(match.id, false);
-                    }
+                    if (checkbox.checked) this.pendingReplacements.delete(match.id);
+                    else this.pendingReplacements.set(match.id, false);
                     this.updatePreview(match);
                 };
             }
 
             const lineContainer = matchEl.createDiv('line-container');
+            lineContainer.createEl('span', { text: `${match.lineNum + 1}:`, cls: 'line-number' });
 
-            // Line number
-            lineContainer.createEl('span', {
-                text: `${match.lineNum + 1}:`,
-                cls: 'line-number'
-            });
-
-            // Match preview with highlighting
             const previewEl = lineContainer.createDiv('match-preview');
             this.renderMatchPreview(previewEl, match);
 
-            // Click to navigate
             matchEl.onclick = (e) => {
-                if (e.target.type !== 'checkbox') {
-                    this.navigateToMatch(match);
-                }
+                if (e.target.type !== 'checkbox') this.navigateToMatch(match);
             };
         }
     }
 
+    // Add
+    updateLoadMoreVisibility() {
+        if (!this.loadMoreContainer) return;
+        this.loadMoreContainer.style.display = (this.renderedCount < this.matches.length) ? '' : 'none';
+    }
+
+    // Add
+    maybeRenderInitialBatch() {
+        if (!this.initialBatchRendered && this.matches.length >= PAGE_SIZE) {
+            this.initialBatchRendered = true;
+            this.renderLimit = PAGE_SIZE;
+            // Render first page without blocking the ongoing search
+            requestAnimationFrame(() => {
+                this.renderMatches({ append: false });
+                this.resultsHeader.setText(`Showing first ${PAGE_SIZE.toLocaleString()} matches (continuing search in background)...`);
+            });
+        }
+    }
+    
     renderMatchPreview(container, match) {
         const line = match.line;
-        const start = match.match.start;
-        const end = match.match.end;
+        const { start, end, text } = match.match;
 
-        // Show context around the match
         const contextStart = Math.max(0, start - 30);
         const contextEnd = Math.min(line.length, end + 30);
 
-        if (contextStart > 0) {
-            container.createEl('span', { text: '...', cls: 'ellipsis' });
-        }
+        if (contextStart > 0) container.createEl('span', { text: '...', cls: 'ellipsis' });
 
-        container.createEl('span', {
-            text: line.substring(contextStart, start),
-            cls: 'context'
-        });
+        container.createEl('span', { text: line.substring(contextStart, start), cls: 'context' });
 
-        const highlightEl = container.createEl('span', {
-            text: match.match.text,
-            cls: 'match-highlight'
-        });
+        const highlightEl = container.createEl('span', { text, cls: 'match-highlight' });
 
-        // Show replacement preview if enabled
         if (this.plugin.settings.replaceEnabled && this.pendingReplacements.get(match.id) !== false) {
-            const replacement = this.getReplacementText(match.match.text);
-            if (replacement !== match.match.text) {
+            const replacement = this.getReplacementText(text);
+            if (replacement !== text) {
                 highlightEl.addClass('has-replacement');
                 const replacementEl = container.createDiv('replacement-preview');
                 replacementEl.createEl('span', { text: '→', cls: 'arrow' });
-                replacementEl.createEl('span', {
-                    text: replacement,
-                    cls: 'replacement-text'
-                });
+                replacementEl.createEl('span', { text: replacement, cls: 'replacement-text' });
             }
         }
 
-        container.createEl('span', {
-            text: line.substring(end, contextEnd),
-            cls: 'context'
-        });
-
-        if (contextEnd < line.length) {
-            container.createEl('span', { text: '...', cls: 'ellipsis' });
-        }
+        container.createEl('span', { text: line.substring(end, contextEnd), cls: 'context' });
+        if (contextEnd < line.length) container.createEl('span', { text: '...', cls: 'ellipsis' });
     }
 
     getReplacementText(matchText) {
-        const replaceText = this.replaceInput.value;
-
+        const replaceText = this.replaceInput.value ?? '';
         if (this.plugin.settings.useRegEx) {
-            const searchText = this.findInput.value;
-            const flags = 'gm' + (this.plugin.settings.caseInsensitive ? 'i' : '');
             try {
-                const regex = new RegExp(searchText, flags);
+                const regex = buildRegex(this.findInput.value, {
+                    caseInsensitive: this.plugin.settings.caseInsensitive,
+                    wholeWord: this.plugin.settings.wholeWord
+                });
                 return matchText.replace(regex, replaceText);
-            } catch (e) {
+            } catch (_) {
                 return matchText;
             }
-        } else {
-            return replaceText;
         }
+        return replaceText;
     }
 
     updatePreviews() {
-        for (const match of this.matches) {
-            this.updatePreview(match);
-        }
+        for (const match of this.matches) this.updatePreview(match);
     }
 
     updatePreview(match) {
         const matchEl = this.matchesContainer.querySelector(`[data-match-id="${match.id}"]`);
-        if (matchEl) {
-            const previewEl = matchEl.querySelector('.match-preview');
-            previewEl.empty();
-            this.renderMatchPreview(previewEl, match);
+        if (!matchEl) return;
+        const previewEl = matchEl.querySelector('.match-preview');
+        if (!previewEl) return;
+        previewEl.empty();
+        this.renderMatchPreview(previewEl, match);
+    }
+
+    async navigateToMatch(match) {
+        const leaf = this.app.workspace.getLeaf(false);
+        await leaf.openFile(match.file);
+
+        const view = leaf.view;
+        if (view instanceof MarkdownView) {
+            const editor = view.editor;
+            const from = { line: match.lineNum, ch: match.match.start };
+            const to = { line: match.lineNum, ch: match.match.end };
+            editor.setCursor(from);
+            editor.scrollIntoView({ from, to }, true);
+            const mark = editor.markText(from, to, { className: 'regex-find-highlight-temp' });
+            setTimeout(() => mark.clear(), 2000);
         }
     }
 
-    navigateToMatch(match) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const leaf = this.app.workspace.getLeaf(false);
-            yield leaf.openFile(match.file);
-
-            const view = leaf.view;
-            if (view instanceof obsidian.MarkdownView) {
-                const editor = view.editor;
-                const pos = {
-                    line: match.lineNum,
-                    ch: match.match.start
-                };
-                editor.setCursor(pos);
-                editor.scrollIntoView({
-                    from: pos,
-                    to: { line: match.lineNum, ch: match.match.end }
-                }, true);
-
-                // Highlight the match temporarily
-                const mark = editor.markText(
-                    pos,
-                    { line: match.lineNum, ch: match.match.end },
-                    { className: 'regex-find-highlight-temp' }
-                );
-
-                setTimeout(() => mark.clear(), 2000);
-            }
-        });
+    async replaceAll() {
+        if (!this.plugin.settings.replaceEnabled || this.matches.length === 0) return;
+        const replacements = this.matches.filter(m => this.pendingReplacements.get(m.id) !== false);
+        if (!replacements.length) { new Notice('No replacements selected'); return; }
+        await this.performReplacements(replacements);
     }
 
-    replaceAll() {
-        return __awaiter(this, void 0, void 0, function* () {
-            if (!this.plugin.settings.replaceEnabled || this.matches.length === 0) {
-                return;
-            }
-
-            const replacements = this.matches.filter(m => this.pendingReplacements.get(m.id) !== false);
-            if (replacements.length === 0) {
-                new obsidian.Notice('No replacements selected');
-                return;
-            }
-
-            yield this.performReplacements(replacements);
+    async replaceSelected() {
+        if (!this.plugin.settings.replaceEnabled || this.matches.length === 0) return;
+        const selected = this.matches.filter(m => {
+            const checkbox = this.matchesContainer.querySelector(`[data-match-id="${m.id}"] .match-checkbox`);
+            return checkbox && checkbox.checked;
         });
+        if (!selected.length) { new Notice('No matches selected'); return; }
+        await this.performReplacements(selected);
     }
 
-    replaceSelected() {
-        return __awaiter(this, void 0, void 0, function* () {
-            if (!this.plugin.settings.replaceEnabled || this.matches.length === 0) {
-                return;
-            }
+    async performReplacements(matches) {
+        const fileChanges = new Map();
+        const changes = [];
+        let totalReplacements = 0;
 
-            const selected = this.matches.filter(m => {
-                const checkbox = this.matchesContainer.querySelector(`[data-match-id="${m.id}"] .match-checkbox`);
-                return checkbox && checkbox.checked;
-            });
+        // Group by file
+        for (const m of matches) {
+            if (!fileChanges.has(m.file)) fileChanges.set(m.file, []);
+            fileChanges.get(m.file).push(m);
+        }
 
-            if (selected.length === 0) {
-                new obsidian.Notice('No matches selected');
-                return;
-            }
+        for (const [file, fileMatches] of fileChanges) {
+            try {
+                const original = await this.app.vault.read(file);
+                const lines = original.split('\n');
 
-            yield this.performReplacements(selected);
-        });
-    }
+                // Sort reverse to preserve indices
+                fileMatches.sort((a, b) => (a.lineNum !== b.lineNum) ? b.lineNum - a.lineNum : b.match.start - a.match.start);
 
-    performReplacements(matches) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const fileChanges = new Map();
-            const changes = [];
-            let totalReplacements = 0;
-
-            // Group matches by file
-            for (const match of matches) {
-                if (!fileChanges.has(match.file)) {
-                    fileChanges.set(match.file, []);
+                for (const m of fileMatches) {
+                    const line = lines[m.lineNum];
+                    const replacement = this.getReplacementText(m.match.text);
+                    lines[m.lineNum] = line.slice(0, m.match.start) + replacement + line.slice(m.match.end);
+                    totalReplacements++;
                 }
-                fileChanges.get(match.file).push(match);
-            }
 
-            // Process each file
-            for (const [file, fileMatches] of fileChanges) {
-                try {
-                    const original = yield this.app.vault.read(file);
-                    let modified = original;
-
-                    // Sort matches by position (reverse order to maintain indices)
-                    fileMatches.sort((a, b) => {
-                        if (a.lineNum !== b.lineNum) {
-                            return b.lineNum - a.lineNum;
-                        }
-                        return b.match.start - a.match.start;
-                    });
-
-                    // Apply replacements
-                    const lines = modified.split('\n');
-                    for (const match of fileMatches) {
-                        const line = lines[match.lineNum];
-                        const replacement = this.getReplacementText(match.match.text);
-                        lines[match.lineNum] =
-                            line.substring(0, match.match.start) +
-                            replacement +
-                            line.substring(match.match.end);
-                        totalReplacements++;
-                    }
-
-                    modified = lines.join('\n');
-
-                    if (modified !== original) {
-                        yield this.app.vault.modify(file, modified);
-                        changes.push({
-                            path: file.path,
-                            before: original,
-                            after: modified
-                        });
-                    }
-                } catch (e) {
-                    logger('Error processing file: ' + file.path + ' -> ' + e.message, 1);
+                const modified = lines.join('\n');
+                if (modified !== original) {
+                    await this.app.vault.modify(file, modified);
+                    changes.push({ path: file.path, before: original, after: modified });
                 }
+            } catch (e) {
+                logger('Error processing file: ' + file.path + ' -> ' + e.message, 1);
             }
+        }
 
-            // Save to history
-            if (totalReplacements > 0 && changes.length > 0) {
-                const op = {
-                    timestamp: Date.now(),
-                    scope: this.plugin.settings.allFiles ? 'vault' : 'document',
-                    count: totalReplacements,
-                    find: this.findInput.value,
-                    replace: this.replaceInput.value,
-                    useRegEx: this.plugin.settings.useRegEx,
-                    regexFlags: 'gm' + (this.plugin.settings.caseInsensitive ? 'i' : ''),
-                    changes
-                };
+        if (totalReplacements > 0 && changes.length > 0) {
+            const op = {
+                timestamp: Date.now(),
+                scope: this.plugin.settings.allFiles ? 'vault' : 'document',
+                count: totalReplacements,
+                find: this.findInput.value,
+                replace: this.replaceInput.value,
+                useRegEx: this.plugin.settings.useRegEx,
+                regexFlags: 'gm' + (this.plugin.settings.caseInsensitive ? 'i' : ''),
+                changes
+            };
+            this.plugin.history.push(op);
+            if (this.plugin.history.length > MAX_HISTORY) this.plugin.history.shift();
+        }
 
-                this.plugin.history.push(op);
-                if (this.plugin.history.length > MAX_HISTORY) {
-                    this.plugin.history.shift();
-                }
-            }
-
-            new obsidian.Notice(`Replaced ${totalReplacements} match${totalReplacements !== 1 ? 'es' : ''} in ${changes.length} file${changes.length !== 1 ? 's' : ''}`);
-
-            // Refresh search
-            yield this.performSearch();
-        });
+        new Notice(`Replaced ${totalReplacements} match${totalReplacements !== 1 ? 'es' : ''} in ${changes.length} file${changes.length !== 1 ? 's' : ''}`);
+        await this.performSearch();
     }
 
-    onClose() {
-        // Nothing to clean up
-    }
+    onClose() { /* noop */ }
 }
 
-class RegexFindReplaceSettingTab extends obsidian.PluginSettingTab {
+/* ===========================
+   Settings
+   =========================== */
+class RegexFindReplaceSettingTab extends PluginSettingTab {
     constructor(app, plugin) {
         super(app, plugin);
         this.plugin = plugin;
@@ -918,51 +769,51 @@ class RegexFindReplaceSettingTab extends obsidian.PluginSettingTab {
 
         containerEl.createEl('h4', { text: 'Regular Expression Settings' });
 
-        new obsidian.Setting(containerEl)
+        new Setting(containerEl)
             .setName('Case Insensitive')
             .setDesc('When using regular expressions, apply the \'i\' modifier for case insensitive search')
-            .addToggle(toggle => toggle
+            .addToggle(t => t
                 .setValue(this.plugin.settings.caseInsensitive)
-                .onChange((value) => __awaiter(this, void 0, void 0, function* () {
+                .onChange(async (value) => {
                     logger('Settings update: caseInsensitive: ' + value);
                     this.plugin.settings.caseInsensitive = value;
-                    yield this.plugin.saveSettings();
-                })));
+                    await this.plugin.saveSettings();
+                }));
 
         containerEl.createEl('h4', { text: 'General Settings' });
 
-        new obsidian.Setting(containerEl)
+        new Setting(containerEl)
             .setName('Process \\n as line break')
             .setDesc('When \'\\n\' is used in the replace field, a \'line break\' will be inserted accordingly')
-            .addToggle(toggle => toggle
+            .addToggle(t => t
                 .setValue(this.plugin.settings.processLineBreak)
-                .onChange((value) => __awaiter(this, void 0, void 0, function* () {
+                .onChange(async (value) => {
                     logger('Settings update: processLineBreak: ' + value);
                     this.plugin.settings.processLineBreak = value;
-                    yield this.plugin.saveSettings();
-                })));
+                    await this.plugin.saveSettings();
+                }));
 
-        new obsidian.Setting(containerEl)
+        new Setting(containerEl)
             .setName('Process \\t as tab')
             .setDesc('When \'\\t\' is used in the replace field, a \'tab\' will be inserted accordingly')
-            .addToggle(toggle => toggle
+            .addToggle(t => t
                 .setValue(this.plugin.settings.processTab)
-                .onChange((value) => __awaiter(this, void 0, void 0, function* () {
+                .onChange(async (value) => {
                     logger('Settings update: processTab: ' + value);
                     this.plugin.settings.processTab = value;
-                    yield this.plugin.saveSettings();
-                })));
+                    await this.plugin.saveSettings();
+                }));
 
-        new obsidian.Setting(containerEl)
+        new Setting(containerEl)
             .setName('Prefill Find Field')
             .setDesc('Copy the currently selected text (if any) into the \'Find\' text field')
-            .addToggle(toggle => toggle
+            .addToggle(t => t
                 .setValue(this.plugin.settings.prefillFind)
-                .onChange((value) => __awaiter(this, void 0, void 0, function* () {
+                .onChange(async (value) => {
                     logger('Settings update: prefillFind: ' + value);
                     this.plugin.settings.prefillFind = value;
-                    yield this.plugin.saveSettings();
-                })));
+                    await this.plugin.saveSettings();
+                }));
     }
 }
 
