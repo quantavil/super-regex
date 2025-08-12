@@ -79,7 +79,6 @@ class RegexFindReplacePlugin extends Plugin {
             callback: async () => await this.undoLast()
         });
 
-        this.app.workspace.onLayoutReady(() => this.activateView());
     }
 
     onunload() {

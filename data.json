@@ -1,6 +1,6 @@
 {
-  "findText": "quite|lot|thing",
-  "replaceText": "2024",
+  "findText": "aa|quite|aaa",
+  "replaceText": "2024a",
   "useRegEx": true,
   "selOnly": false,
   "caseInsensitive": true,
@@ -8,7 +8,7 @@
   "processTab": false,
   "prefillFind": false,
   "allFiles": true,
-  "replaceEnabled": false,
+  "replaceEnabled": true,
   "wholeWord": true,
   "searchOnly": false,
   "scope": "current",
