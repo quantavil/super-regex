@@ -1,5 +1,5 @@
 {
-  "findText": "s",
+  "findText": "quite|lot|thing",
   "replaceText": "2024",
   "useRegEx": true,
   "selOnly": false,
@@ -7,8 +7,8 @@
   "processLineBreak": false,
   "processTab": false,
   "prefillFind": false,
-  "allFiles": false,
-  "replaceEnabled": true,
+  "allFiles": true,
+  "replaceEnabled": false,
   "wholeWord": true,
   "searchOnly": false,
   "scope": "current",

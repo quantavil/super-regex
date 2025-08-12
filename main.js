@@ -38,18 +38,19 @@ const logThreshold = 9;
 const logger = (msg, lvl = 0) => { if (lvl <= logThreshold) console.log('RegexFiRe:', msg); };
 
 const debounce = (fn, delay = 300) => {
-    let t;
-    return (...args) => {
-        clearTimeout(t);
-        t = setTimeout(() => fn(...args), delay);
-    };
+  let t;
+  return (...args) => {
+    clearTimeout(t);
+    t = setTimeout(() => fn(...args), delay);
+  };
 };
 
+// Centralized regex builder with whole-word support
 const buildRegex = (pattern, { caseInsensitive, wholeWord } = {}) => {
-    const flags = 'gm' + (caseInsensitive ? 'i' : '');
-    let patt = pattern;
-    if (wholeWord) patt = `\\b(?:${patt})\\b`;
-    return new RegExp(patt, flags);
+  const flags = 'gm' + (caseInsensitive ? 'i' : '');
+  let patt = pattern;
+  if (wholeWord) patt = `\\b(?:${patt})\\b`;
+  return new RegExp(patt, flags);
 };
 
 /* ===========================
@@ -146,6 +147,8 @@ class RegexFindReplaceView extends ItemView {
         this.currentMatchIndex = 0;
         this.pendingReplacements = new Map();
         this.debouncedSearch = debounce(() => this.performSearch(), 500);
+
+        // Paging / background search state
         this.renderLimit = PAGE_SIZE;
         this.renderedCount = 0;
         this.fileContainers = new Map();
@@ -229,22 +232,31 @@ class RegexFindReplaceView extends ItemView {
 
         this.replaceAllBtn = buttonContainer.createEl('button', { text: 'Replace All', cls: 'mod-cta' });
         this.replaceSelectedBtn = buttonContainer.createEl('button', { text: 'Replace Selected', cls: 'mod-cta' });
+
+        // Deselect All
         this.deselectAllBtn = buttonContainer.createEl('button', { text: 'Deselect All', cls: 'mod-muted' });
         this.deselectAllBtn.onclick = () => this.deselectAll();
+
+        // Undo
         buttonContainer.createEl('button', { text: 'Undo', cls: 'mod-muted' }).onclick = () => this.plugin.undoLast();
 
         // Results
         this.resultsContainer = container.createDiv('results-section');
         this.resultsHeader = this.resultsContainer.createDiv('results-header');
-        this.matchesContainer = this.resultsContainer.createDiv('matches-container');
-        this.loadMoreContainer = this.resultsContainer.createDiv('load-more-container');
-        this.loadMoreContainer.style.textAlign = 'center';
-        this.loadMoreBtn = this.loadMoreContainer.createEl('button', {
+
+        // Header text + clickable "Load more"
+        this.headerTextEl = this.resultsHeader.createEl('span', { cls: 'results-header-text' });
+        this.loadMoreLink = this.resultsHeader.createEl('a', {
             text: 'Load more',
-            cls: 'mod-cta'
+            href: '#',
+            cls: 'results-header-load-more'
         });
-        this.loadMoreBtn.onclick = () => this.loadMore();
+        this.loadMoreLink.style.marginLeft = '8px';
+        this.loadMoreLink.onclick = (e) => { e.preventDefault(); this.loadMore(); };
+
+        this.matchesContainer = this.resultsContainer.createDiv('matches-container');
         this.updateLoadMoreVisibility();
+
         // Events
         this.findInput.oninput = () => {
             this.plugin.settings.findText = this.findInput.value;
@@ -333,7 +345,7 @@ class RegexFindReplaceView extends ItemView {
 
     updateUI() {
         const enabled = this.plugin.settings.replaceEnabled;
-        const setDisabled = (el, state) => {
+        const setDisabled = (el) => {
             el.disabled = !enabled;
             el.toggleClass('disabled', !enabled);
         };
@@ -344,7 +356,6 @@ class RegexFindReplaceView extends ItemView {
         this.updateRegexFlagsVisibility();
     }
 
-    // Replace entire method
     async performSearch() {
         this.matches = [];
         this.pendingReplacements.clear();
@@ -354,16 +365,16 @@ class RegexFindReplaceView extends ItemView {
         const notFoundContainer = this.resultsContainer.querySelector('.not-found-words-container');
         if (notFoundContainer) notFoundContainer.remove();
 
-        this.resultsHeader.setText('Searching...');
+        this.headerTextEl.setText('Searching...');
         this.initialBatchRendered = false;
         this.renderLimit = PAGE_SIZE;
         this.renderedCount = 0;
         this.searchInProgress = true;
 
         const searchText = this.findInput.value || '';
-
         if (!searchText.trim()) {
-            this.resultsHeader.setText('Enter a search pattern');
+            this.headerTextEl.setText('Enter a search pattern');
+            this.searchInProgress = false;
             this.updateLoadMoreVisibility();
             return;
         }
@@ -380,13 +391,15 @@ class RegexFindReplaceView extends ItemView {
             try {
                 searchRegex = buildRegex(searchText, { caseInsensitive, wholeWord });
                 if (searchRegex.test('')) {
-                    this.resultsHeader.setText('Pattern matches empty string - please refine your search');
+                    this.headerTextEl.setText('Pattern matches empty string - please refine your search');
                     this.searchInProgress = false;
+                    this.updateLoadMoreVisibility();
                     return;
                 }
             } catch (e) {
-                this.resultsHeader.setText('Invalid regular expression');
+                this.headerTextEl.setText('Invalid regular expression');
                 this.searchInProgress = false;
+                this.updateLoadMoreVisibility();
                 return;
             }
         }
@@ -411,19 +424,15 @@ class RegexFindReplaceView extends ItemView {
             }
         }
 
-        // Finalize UI
-        this.searchInProgress = false;
-
-        let headerText = `Found ${this.matches.length} match${this.matches.length !== 1 ? 'es' : ''}`;
-        if (limitReached) headerText += ` (limit of ${MAX_MATCHES.toLocaleString()} reached)`;
-        this.resultsHeader.setText(headerText);
-
         if (!this.initialBatchRendered) {
             this.renderLimit = Math.min(PAGE_SIZE, this.matches.length);
             this.renderMatches({ append: false });
         } else {
             this.updateLoadMoreVisibility();
         }
+
+        this.searchInProgress = false;
+        this.updateHeader(limitReached);
 
         if (isPipeSearch) this.displayNotFoundWords(searchWords, foundWords);
     }
@@ -460,7 +469,6 @@ class RegexFindReplaceView extends ItemView {
         }
     }
 
-    // Replace entire method
     async searchInFile(file, searchText, searchRegex, maxMatches = MAX_MATCHES, foundWords = null) {
         const content = await this.app.vault.read(file);
         const lines = content.split('\n');
@@ -529,7 +537,7 @@ class RegexFindReplaceView extends ItemView {
         this.updateLoadMoreVisibility();
     }
 
-    // Add
+    // Actions
     deselectAll() {
         if (!this.plugin.settings.replaceEnabled) return;
         for (const m of this.matches) this.pendingReplacements.set(m.id, false);
@@ -537,16 +545,16 @@ class RegexFindReplaceView extends ItemView {
         this.updatePreviews();
     }
 
-    // Add
     loadMore() {
         const start = this.renderedCount;
         const end = Math.min(start + PAGE_SIZE, this.matches.length);
         this.renderMatchesSlice(start, end);
         this.renderedCount = end;
         this.updateLoadMoreVisibility();
+        this.updateHeader();
     }
 
-    // Add
+    // Rendering helpers
     ensureFileContainer(file) {
         const key = file.path;
         if (this.fileContainers.has(key)) return this.fileContainers.get(key);
@@ -557,7 +565,6 @@ class RegexFindReplaceView extends ItemView {
         return fileContainer;
     }
 
-    // Add
     renderMatchesSlice(start, end) {
         for (let i = start; i < end; i++) {
             const match = this.matches[i];
@@ -588,13 +595,12 @@ class RegexFindReplaceView extends ItemView {
         }
     }
 
-    // Add
     updateLoadMoreVisibility() {
-        if (!this.loadMoreContainer) return;
-        this.loadMoreContainer.style.display = (this.renderedCount < this.matches.length) ? '' : 'none';
+        if (this.loadMoreLink) {
+            this.loadMoreLink.style.display = (this.renderedCount < this.matches.length) ? '' : 'none';
+        }
     }
 
-    // Add
     maybeRenderInitialBatch() {
         if (!this.initialBatchRendered && this.matches.length >= PAGE_SIZE) {
             this.initialBatchRendered = true;
@@ -602,11 +608,27 @@ class RegexFindReplaceView extends ItemView {
             // Render first page without blocking the ongoing search
             requestAnimationFrame(() => {
                 this.renderMatches({ append: false });
-                this.resultsHeader.setText(`Showing first ${PAGE_SIZE.toLocaleString()} matches (continuing search in background)...`);
+                this.updateHeader();
             });
         }
     }
-    
+
+    updateHeader(limitReached = false) {
+        if (!this.headerTextEl) return;
+
+        if (this.initialBatchRendered && (this.searchInProgress || this.renderedCount < this.matches.length)) {
+            const bg = this.searchInProgress ? ' (continuing search in background...)' : '';
+            this.headerTextEl.setText(`Showing first ${this.renderedCount.toLocaleString()} matches${bg}`);
+        } else {
+            let text = `Found ${this.matches.length} match${this.matches.length !== 1 ? 'es' : ''}`;
+            if (limitReached) text += ` (limit of ${MAX_MATCHES.toLocaleString()} reached)`;
+            this.headerTextEl.setText(text);
+        }
+
+        this.updateLoadMoreVisibility();
+    }
+
+    // Match preview renderer
     renderMatchPreview(container, match) {
         const line = match.line;
         const { start, end, text } = match.match;
