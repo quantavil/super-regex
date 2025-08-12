@@ -432,6 +432,12 @@ class RegexFindReplaceView extends obsidian.ItemView {
                     }
 
                     searchRegex = new RegExp(pattern, flags);
+
+                    // Test if regex can match empty string and prevent it
+                    if (searchRegex.test('')) {
+                        this.resultsHeader.setText('Pattern matches empty string - please refine your search');
+                        return;
+                    }
                 } catch (e) {
                     this.resultsHeader.setText('Invalid regular expression');
                     return;

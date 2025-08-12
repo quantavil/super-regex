@@ -1,5 +1,5 @@
 {
-  "findText": "HOR| LOT",
+  "findText": "qa|bb|cc|cdd",
   "replaceText": "slowx",
   "useRegEx": true,
   "selOnly": false,
@@ -9,7 +9,7 @@
   "prefillFind": false,
   "allFiles": true,
   "replaceEnabled": false,
-  "wholeWord": true,
+  "wholeWord": false,
   "searchOnly": false,
   "scope": "current",
   "openAtStartup": true,
