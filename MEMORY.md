@@ -1,7 +1,7 @@
 # Project: super-regex
 
 ## Overview
-Obsidian plugin for finding and replacing text across specific files, folders, or the entire vault. Supports three search modes: plain Text, RegEx, and AI (natural language → regex via Gemini API). Uses a custom view pane with inline replace previews, prominent undo banners, export-to-clipboard, and pipe-based multi-term matching.
+Obsidian plugin for finding and replacing text across specific files, folders, or the entire vault. Supports two search modes: plain Text and RegEx. Includes an AI feature (via Gemini API) that converts natural language into regex patterns. Uses a custom view pane with inline replace previews, prominent undo banners, export-to-clipboard, and pipe-based multi-term matching.
 
 ## Structure
 src/
@@ -12,7 +12,7 @@ src/
 ├── search.ts # Isolated math logic for raw regex and search loops.
 ├── ai.ts # AI Service connected via OpenAI API standard endpoints to generate regex strings from Natural Language.
 ├── utils.ts # Helper functions (debounce, buildRegex, getReplacementText).
-└── types.ts # Type definitions, constants, and interface for settings/history. SearchMode replaces boolean regex toggles.
+└── types.ts # Type definitions, constants, and interface for settings/history. SearchMode ('text' | 'regex') replaces boolean regex toggles.
 test/
 └── utils.test.ts # Tests
 
@@ -35,9 +35,8 @@ test/
 - The CSS selector `.cm-s-obsidian` is only for Obsidian CM5 legacy mode. Use `.cm-editor` for CodeMirror 6 active line targeting.
 - Settings `folderScope` restricts searches by prepending paths to `getMarkdownFiles()`.
 - Search limits are enforced globally per query via `MAX_MATCHES` constant.
-- AI mode uses Google's OpenAI-compatible endpoint (`generativelanguage.googleapis.com/v1beta/openai/`). Default model: `gemma-4-31b-it`. User configures API key + model + base URL in settings.
-- `SearchMode` type (`'text' | 'regex' | 'ai'`) replaces old boolean `useRegEx`. AI mode generates regex server-side then feeds it through the same search pipeline as manual regex.
-- In AI mode, `performSearch(overrideRegexStr)` receives the generated pattern. `submitReplacements` must pass `currentAiRegexRaw` so post-replace re-search doesn't try to parse the natural language prompt as regex.
+- AI feature acts as a generator tool rather than a standalone mode ("AI-as-a-tool"). It converts natural language to RegEx via a "Convert to RegEx ✨" button and injects the result into RegEx mode.
+- `SearchMode` type (`'text' | 'regex'`) replaces old boolean `useRegEx`. AI mode was removed as a type, simplifying state management and searches.
 
 ## Blunders
 - SVG injection directly to `innerHTML` violates Obsidian community API security standards. Use `DOMParser.parseFromString` instead. Fix implemented in `ui.ts`.

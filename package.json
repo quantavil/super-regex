@@ -1,6 +1,6 @@
 {
   "name": "super-regex",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Find and replace text using regular expressions and do more.",
   "main": "dist/main.js",
   "scripts": {

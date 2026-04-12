@@ -4,8 +4,8 @@ Super Regex is an advanced Find & Replace plugin for Obsidian. It provides a ded
 
 ## Features
 
-*   **AI-Powered Search ✨:** Describe what you want to find in plain English (e.g. "email addresses", "dates in YYYY-MM-DD format"). The plugin uses Google's Gemini API to generate the regex for you automatically.
-*   **Three Search Modes:** Switch between **Text** (literal), **RegEx** (manual regex with capture groups, flags), and **AI** (natural language → regex) via a simple dropdown.
+*   **AI-Powered Regex ✨:** Describe what you want to find in plain English (e.g. "email addresses", "dates in YYYY-MM-DD format"), click the `✨ Convert to RegEx` button, and let Google's Gemini API generate the pattern for you automatically.
+*   **Dual Search Modes:** Switch between **Text** (literal string bounds) and **RegEx** (full expression support) via a simple pill selector.
 *   **Flexible Scoping:** Search your entire vault, restrict to specific folders via a fuzzy finder, or search within the currently active document.
 *   **Granular Control:** Preview match contexts inline with real-time replacement previews. Select individual matches using checkboxes before committing.
 *   **Safe Undo Mechanism:** A prominent Undo banner appears after bulk operations, allowing quick reversal. Protected by a history cap.
@@ -16,10 +16,10 @@ Super Regex is an advanced Find & Replace plugin for Obsidian. It provides a ded
 ## How to Use
 
 1. Click the **Search** icon in the left ribbon or invoke `Open Find and Replace panel`.
-2. Select your **Mode** — Text, RegEx, or AI ✨.
+2. Select your **Mode** using the pills — **Text** or **RegEx**.
 3. Enter your query in the *Find* input:
-   - **Text/RegEx mode:** Enter search pattern directly.
-   - **AI mode:** Describe what you're looking for in natural language, then press Enter.
+   - **Text mode:** Enter standard text values.
+   - **RegEx mode:** Type your regex, OR write plain English and click the `✨ Convert to RegEx` button.
 4. Toggle `All Files` and click `📁 All` to restrict to a folder if needed.
 5. Define the replacement string in the *Replace* input.
 6. Review inline match previews in the results pane.
@@ -31,6 +31,7 @@ Super Regex is an advanced Find & Replace plugin for Obsidian. It provides a ded
 1. Go to **Settings → Super Regex → AI Configuration**.
 2. Enter your **API Key** (Google Gemini API key).
 3. The default model is `gemma-4-31b-it` and the default endpoint is Google's OpenAI-compatible API. You can change both to use any OpenAI-compatible provider.
+4. Click `Verify API Configuration` to test your connection.
 
 ## Author
 

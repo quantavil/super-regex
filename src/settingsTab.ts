@@ -58,5 +58,28 @@ export class RegexFindReplaceSettingTab extends PluginSettingTab {
                     this.plugin.settings.aiModel = value;
                     await this.plugin.saveSettings();
                 }));
+
+        const verifyContainer = containerEl.createDiv('ai-verify-btn-container');
+        const verifyBtn = verifyContainer.createEl('button', { text: 'Verify API Configuration' });
+        const verifyStatus = verifyContainer.createEl('span', { cls: 'verify-status', text: '' });
+        verifyStatus.style.marginLeft = '10px';
+        verifyStatus.style.fontSize = '0.9em';
+
+        verifyBtn.onclick = async () => {
+            verifyBtn.disabled = true;
+            verifyStatus.setText('Verifying...');
+            verifyStatus.style.color = 'var(--text-muted)';
+            try {
+                const { generateRegex } = await import('./ai');
+                await generateRegex('match email', this.plugin.settings);
+                verifyStatus.setText('✅ Connection successful');
+                verifyStatus.style.color = 'var(--text-success)';
+            } catch (e: any) {
+                verifyStatus.setText(`❌ Error: ${e.message}`);
+                verifyStatus.style.color = 'var(--text-error)';
+            } finally {
+                verifyBtn.disabled = false;
+            }
+        };
     }
 }

@@ -1,6 +1,6 @@
 import { TFile } from 'obsidian';
 
-export type SearchMode = 'text' | 'regex' | 'ai';
+export type SearchMode = 'text' | 'regex';
 
 export interface RegexFindReplaceSettings {
     findText: string;
