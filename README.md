@@ -13,6 +13,15 @@ Super Regex is an advanced Find & Replace plugin for Obsidian. It provides a ded
 *   **Plaintext Pipe Matching:** Separate multiple words using pipes (`|`) in Text mode to track which terms were "Not Found".
 *   **Keyboard Friendly:** `Ctrl/Cmd+Enter` to search, `Ctrl/Cmd+Shift+Enter` to replace.
 
+## Installation
+
+### Via BRAT (Recommended)
+1. Install the [Obsidian42 - BRAT](https://github.com/TfTHacker/obsidian42-brat) plugin from the Obsidian Community Plugins catalog and enable it.
+2. Go to **Settings → BRAT**.
+3. Click **Add Beta plugin**.
+4. Enter the repository path: `quantavil/super-regex`.
+5. The plugin will be downloaded automatically. Go to **Settings → Community plugins** and enable **Super Regex**.
+
 ## How to Use
 
 1. Click the **Search** icon in the left ribbon or invoke `Open Find and Replace panel`.
@@ -40,3 +49,6 @@ Quantavil
 ## Version
 
 1.1.0
+## License
+
+This project is licensed under the GNU General Public License v3.0 (GPL-3.0) - see the [LICENSE](LICENSE) file for details.

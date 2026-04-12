@@ -1,9 +1,10 @@
 {
 	"author": "quantavil",
+	"authorUrl": "https://github.com/quantavil",
 	"description": "Find and replace text using regular expressions and do more.",
 	"id": "super-regex",
 	"isDesktopOnly": false,
 	"minAppVersion": "1.4.0",
 	"name": "Super Regex",
-	"version": "1.1.0"
+	"version": "1.2.0"
 }

@@ -196,11 +196,11 @@
 .regex-find-replace-view .ai-generate-btn-inline { align-self: flex-start; margin-top: 5px; font-size: 1.1em; }
 
 /* AI Verify Settings Button */
-.ai-verify-btn-container { margin-top: 15px; display: flex; align-items: center; }
-.verify-status { margin-left: 10px; font-size: 0.9em; }
-.verify-checking { color: var(--text-muted); }
-.verify-ok { color: var(--text-success); }
-.verify-error { color: var(--text-error); }
+.super-regex-settings .ai-verify-btn-container { margin-top: 15px; display: flex; align-items: center; }
+.super-regex-settings .verify-status { margin-left: 10px; font-size: 0.9em; }
+.super-regex-settings .verify-checking { color: var(--text-muted); }
+.super-regex-settings .verify-ok { color: var(--text-success); }
+.super-regex-settings .verify-error { color: var(--text-error); }
 
 /* Git-diff style inline apply arrow */
 .regex-find-replace-view .match-apply-btn {

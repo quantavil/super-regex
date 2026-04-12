@@ -12,6 +12,7 @@ export class RegexFindReplaceSettingTab extends PluginSettingTab {
     display(): void {
         const { containerEl } = this;
         containerEl.empty();
+        containerEl.addClass('super-regex-settings');
 
         containerEl.createEl('h4', { text: 'Regular Expression Settings' });
 
