@@ -1,3 +1,5 @@
+import { TFile } from 'obsidian';
+
 export interface RegexFindReplaceSettings {
     findText: string;
     replaceText: string;
@@ -38,9 +40,25 @@ export interface MatchOperation {
     replace: string;
     useRegEx: boolean;
     regexFlags: string;
-    changes: Array<{
-        path: string;
-        before: string;
-        after: string;
-    }>;
+    changes: Array<FileChange>;
+}
+
+export interface FileChange {
+    path: string;
+    before: string;
+    after: string;
+}
+
+export interface MatchLocation {
+    start: number;
+    end: number;
+    text: string;
+}
+
+export interface FileMatch {
+    id: string;
+    file: TFile;
+    lineNum: number;
+    line: string;
+    match: MatchLocation;
 }

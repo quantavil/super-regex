@@ -1,11 +1,13 @@
 import { ItemView, WorkspaceLeaf, ToggleComponent, Notice, TFile, MarkdownView } from 'obsidian';
 import type RegexFindReplacePlugin from './main';
-import { VIEW_TYPE_REGEX_FIND_REPLACE, PAGE_SIZE, MAX_MATCHES, MAX_HISTORY } from './types';
+import { VIEW_TYPE_REGEX_FIND_REPLACE, PAGE_SIZE, MAX_MATCHES, MAX_HISTORY, FileMatch } from './types';
 import { debounce, buildRegex, getReplacementText } from './utils';
+import { findAllMatchesInLine, SearchConfig } from './search';
+import { createToggle, createFlagButton, renderMatchPreview } from './ui';
 
 export class RegexFindReplaceView extends ItemView {
     plugin: RegexFindReplacePlugin;
-    matches: any[];
+    matches: FileMatch[];
     pendingReplacements: Map<string, boolean>;
     debouncedSearch: () => void;
     renderLimit: number;
@@ -91,20 +93,20 @@ export class RegexFindReplaceView extends ItemView {
 
         const optionsContainer = searchSection.createDiv('options-container');
 
-        this.createToggle(optionsContainer, 'Use RegEx', this.plugin.settings.useRegEx, (value) => {
+        createToggle(optionsContainer, 'Use RegEx', this.plugin.settings.useRegEx, (value) => {
             this.plugin.settings.useRegEx = value;
             this.plugin.saveSettings();
             this.updateRegexFlagsVisibility();
             this.performSearch();
         });
 
-        this.createToggle(optionsContainer, 'All Files', this.plugin.settings.allFiles, (value) => {
+        createToggle(optionsContainer, 'All Files', this.plugin.settings.allFiles, (value) => {
             this.plugin.settings.allFiles = value;
             this.plugin.saveSettings();
             this.performSearch();
         });
 
-        this.createToggle(optionsContainer, 'Enable Replace', this.plugin.settings.replaceEnabled, (value) => {
+        createToggle(optionsContainer, 'Enable Replace', this.plugin.settings.replaceEnabled, (value) => {
             this.plugin.settings.replaceEnabled = value;
             this.plugin.saveSettings();
             this.updateUI();
@@ -160,17 +162,9 @@ export class RegexFindReplaceView extends ItemView {
         this.replaceSelectedBtn.onclick = () => this.replaceSelected();
     }
 
-    createToggle(container: HTMLElement, label: string, value: boolean, onChange: (value: boolean) => void) {
-        const toggleContainer = container.createDiv('toggle-container');
-        const toggle = new ToggleComponent(toggleContainer);
-        toggle.setValue(value);
-        toggle.onChange(onChange);
-        toggleContainer.createEl('label', { text: label });
-        return toggle;
-    }
-
     createRegexFlagButtons() {
-        this.caseButton = this.createFlagButton(
+        this.caseButton = createFlagButton(
+            this.regexFlagsContainer,
             'Match case',
             `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon uppercase-lowercase-a"><path d="M10.5 14L4.5 14"></path><path d="M12.5 18L7.5 6"></path><path d="M3 18L7.5 6"></path><path d="M15.9526 10.8322C15.9526 10.8322 16.6259 10 18.3832 10C20.1406 9.99999 20.9986 11.0587 20.9986 11.9682V16.7018C20.9986 17.1624 21.2815 17.7461 21.7151 18"></path><path d="M20.7151 13.5C18.7151 13.5 15.7151 14.2837 15.7151 16C15.7151 17.7163 17.5908 18.2909 18.7151 18C19.5635 17.7804 20.5265 17.3116 20.889 16.6199"></path></svg>`,
             !this.plugin.settings.caseInsensitive,
@@ -181,7 +175,8 @@ export class RegexFindReplaceView extends ItemView {
             }
         );
 
-        this.wholeWordButton = this.createFlagButton(
+        this.wholeWordButton = createFlagButton(
+            this.regexFlagsContainer,
             'Whole word',
             `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><line x1="9" y1="7" x2="15" y2="7"/><line x1="9" y1="11" x2="15" y2="11"/><line x1="9" y1="15" x2="11" y2="15"/></svg>`,
             this.plugin.settings.wholeWord,
@@ -193,20 +188,6 @@ export class RegexFindReplaceView extends ItemView {
         );
 
         this.updateRegexFlagsVisibility();
-    }
-
-    createFlagButton(label: string, svgContent: string, initialActive: boolean, onChange: (active: boolean) => void) {
-        const button = this.regexFlagsContainer.createEl('button', {
-            cls: 'regex-flag-button' + (initialActive ? ' active' : ''),
-            attr: { 'aria-label': label }
-        });
-        button.innerHTML = svgContent;
-        button.onclick = () => {
-            const nowActive = !button.hasClass('active');
-            button.toggleClass('active', nowActive);
-            onChange(nowActive);
-        };
-        return button;
     }
 
     updateRegexFlagsVisibility() {
@@ -348,45 +329,39 @@ export class RegexFindReplaceView extends ItemView {
         const lines = content.split('\n');
         let fileMatchCount = 0;
 
-        const isPipe = searchText.includes('|');
+        const isPipe = !this.plugin.settings.useRegEx && searchText.includes('|');
         const pipeWords = isPipe ? searchText.split('|').map(w => w.trim()).filter(Boolean) : null;
+        const pipeRegExps = pipeWords ? pipeWords.map(w => {
+            try { 
+                return { word: w, re: new RegExp(w, this.plugin.settings.caseInsensitive ? 'i' : '') }; 
+            } catch (_) { 
+                console.warn(`Skipping invalid pipe pattern: ${w}`);
+                return null;
+            }
+        }).filter((p): p is { word: string; re: RegExp } => p !== null) : null;
+
+        const ci = this.plugin.settings.caseInsensitive;
+        const query = ci ? searchText.toLowerCase() : searchText;
+
+        const searchConfig: SearchConfig = {
+            searchRegex,
+            queryString: query,
+            isPipe,
+            pipeRegExps
+        };
 
         for (let lineNum = 0; lineNum < lines.length; lineNum++) {
             const line = lines[lineNum];
-            const lineMatches = [];
-
-            if (searchRegex) {
-                searchRegex.lastIndex = 0;
-                let match;
-                while ((match = searchRegex.exec(line)) !== null) {
-                    lineMatches.push({ start: match.index, end: match.index + match[0].length, text: match[0] });
-
-                    if (foundWords && isPipe && pipeWords?.length) {
-                        for (const word of pipeWords) {
-                            try {
-                                const re = new RegExp(word, this.plugin.settings.caseInsensitive ? 'i' : '');
-                                if (re.test(match[0])) foundWords.add(word);
-                            } catch (_) { /* ignore */ }
-                        }
-                    }
-                    if (this.matches.length + lineMatches.length >= maxMatches) break;
-                }
-            } else {
-                const ci = this.plugin.settings.caseInsensitive;
-                const query = ci ? searchText.toLowerCase() : searchText;
-                const src = ci ? line.toLowerCase() : line;
-                let index = 0;
-                while ((index = src.indexOf(query, index)) !== -1) {
-                    lineMatches.push({ start: index, end: index + searchText.length, text: line.substring(index, index + searchText.length) });
-                    index += searchText.length;
-                    if (this.matches.length + lineMatches.length >= maxMatches) break;
-                }
-            }
+            const srcLine = ci && !searchRegex ? line.toLowerCase() : line;
+            
+            const lineMatches = findAllMatchesInLine(srcLine, searchConfig, foundWords);
 
             for (const m of lineMatches) {
                 if (this.matches.length >= maxMatches) return fileMatchCount;
 
-                this.matches.push({ file, lineNum, line, match: m, id: `${file.path}-${lineNum}-${m.start}` });
+                // Use the matching coordinates on the original un-lowercased line string
+                const matchVal = { start: m.start, end: m.end, text: line.substring(m.start, m.end) };
+                this.matches.push({ file, lineNum, line, match: matchVal, id: `${file.path}-${lineNum}-${m.start}` });
                 fileMatchCount++;
 
                 this.maybeRenderInitialBatch();
@@ -458,7 +433,13 @@ export class RegexFindReplaceView extends ItemView {
             lineContainer.createEl('span', { text: `${match.lineNum + 1}:`, cls: 'line-number' });
 
             const previewEl = lineContainer.createDiv('match-preview');
-            this.renderMatchPreview(previewEl, match);
+            renderMatchPreview(previewEl, match, {
+                replaceEnabled: this.plugin.settings.replaceEnabled,
+                pendingReplacement: this.pendingReplacements.get(match.id) !== false,
+                useRegEx: this.plugin.settings.useRegEx,
+                searchRegex: this.currentSearchRegex,
+                replaceText: this.replaceInput.value
+            });
 
             matchEl.onclick = (e) => {
                 if ((e.target as HTMLInputElement).type !== 'checkbox') this.navigateToMatch(match);
@@ -498,47 +479,26 @@ export class RegexFindReplaceView extends ItemView {
         this.updateLoadMoreVisibility();
     }
 
-    renderMatchPreview(container: HTMLElement, match: any) {
-        const line = match.line;
-        const { start, end, text } = match.match;
-
-        const contextStart = Math.max(0, start - 30);
-        const contextEnd = Math.min(line.length, end + 30);
-
-        if (contextStart > 0) container.createEl('span', { text: '...', cls: 'ellipsis' });
-
-        container.createEl('span', { text: line.substring(contextStart, start), cls: 'context' });
-
-        const highlightEl = container.createEl('span', { text, cls: 'match-highlight' });
-
-        if (this.plugin.settings.replaceEnabled && this.pendingReplacements.get(match.id) !== false) {
-            const replacement = getReplacementText(this.plugin.settings.useRegEx, text, this.currentSearchRegex, this.replaceInput.value ?? '');
-            if (replacement !== text) {
-                highlightEl.addClass('has-replacement');
-                const replacementEl = container.createDiv('replacement-preview');
-                replacementEl.createEl('span', { text: '→', cls: 'arrow' });
-                replacementEl.createEl('span', { text: replacement, cls: 'replacement-text' });
-            }
-        }
-
-        container.createEl('span', { text: line.substring(end, contextEnd), cls: 'context' });
-        if (contextEnd < line.length) container.createEl('span', { text: '...', cls: 'ellipsis' });
-    }
-
     updatePreviews() {
         for (const match of this.matches) this.updatePreview(match);
     }
 
-    updatePreview(match: any) {
+    updatePreview(match: FileMatch) {
         const matchEl = this.matchesContainer.querySelector(`[data-match-id="${match.id}"]`);
         if (!matchEl) return;
         const previewEl = matchEl.querySelector('.match-preview');
         if (!previewEl) return;
         previewEl.empty();
-        this.renderMatchPreview(previewEl as HTMLElement, match);
+        renderMatchPreview(previewEl as HTMLElement, match, {
+            replaceEnabled: this.plugin.settings.replaceEnabled,
+            pendingReplacement: this.pendingReplacements.get(match.id) !== false,
+            useRegEx: this.plugin.settings.useRegEx,
+            searchRegex: this.currentSearchRegex,
+            replaceText: this.replaceInput.value
+        });
     }
 
-    async navigateToMatch(match: any) {
+    async navigateToMatch(match: FileMatch) {
         const leaf = this.app.workspace.getLeaf(false);
         await leaf.openFile(match.file);
 
@@ -556,7 +516,7 @@ export class RegexFindReplaceView extends ItemView {
         if (!this.plugin.settings.replaceEnabled || this.matches.length === 0) return;
         const replacements = this.matches.filter(m => this.pendingReplacements.get(m.id) !== false);
         if (!replacements.length) { new Notice('No replacements selected'); return; }
-        await this.performReplacements(replacements);
+        await this.submitReplacements(replacements);
     }
 
     async replaceSelected() {
@@ -566,12 +526,15 @@ export class RegexFindReplaceView extends ItemView {
             return checkbox && checkbox.checked;
         });
         if (!selected.length) { new Notice('No matches selected'); return; }
-        await this.performReplacements(selected);
+        await this.submitReplacements(selected);
     }
 
-    async performReplacements(matches: any[]) {
-        const replaceText = this.replaceInput.value ?? '';
-        const findText = this.findInput.value ?? '';
+    /**
+     * Collects and submits the selected matches to the plugin's performReplacements method.
+     */
+    async submitReplacements(matches: FileMatch[]) {
+        const replaceText = this.replaceInput.value;
+        const findText = this.findInput.value;
         await this.plugin.performReplacements(matches, this.currentSearchRegex, replaceText, findText);
         await this.performSearch();
     }

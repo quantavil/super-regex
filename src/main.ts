@@ -1,15 +1,15 @@
-import { Plugin, Notice, TFile } from 'obsidian';
+import { Plugin, Notice, TFile, MarkdownView } from 'obsidian';
 import { RegexFindReplaceSettingTab } from './settingsTab';
 import { RegexFindReplaceView } from './view';
-import { DEFAULT_SETTINGS, RegexFindReplaceSettings, VIEW_TYPE_REGEX_FIND_REPLACE, MatchOperation, MAX_HISTORY } from './types';
-import { logger, getReplacementText } from './utils';
+import { DEFAULT_SETTINGS, RegexFindReplaceSettings, VIEW_TYPE_REGEX_FIND_REPLACE, MatchOperation, MAX_HISTORY, FileMatch, FileChange } from './types';
+import { logger, getReplacementText, LogLevel } from './utils';
 
 export default class RegexFindReplacePlugin extends Plugin {
     settings!: RegexFindReplaceSettings;
     history: MatchOperation[] = [];
 
     async onload() {
-        logger('Loading Plugin...', 9);
+        logger('Loading Plugin...', LogLevel.INFO);
         this.history = [];
         await this.loadSettings();
 
@@ -32,7 +32,7 @@ export default class RegexFindReplacePlugin extends Plugin {
     }
 
     onunload() {
-        logger('Bye!', 9);
+        logger('Bye!', LogLevel.INFO);
         this.history = [];
         this.app.workspace.detachLeavesOfType(VIEW_TYPE_REGEX_FIND_REPLACE);
     }
@@ -47,7 +47,7 @@ export default class RegexFindReplacePlugin extends Plugin {
     }
 
     async loadSettings() {
-        logger('Loading Settings...', 6);
+        logger('Loading Settings...', LogLevel.DEBUG);
         this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
     }
 
@@ -67,7 +67,7 @@ export default class RegexFindReplacePlugin extends Plugin {
             return;
         }
 
-        logger(`Reverting last operation from ${new Date(lastOp.timestamp).toLocaleString()}`, 6);
+        logger(`Reverting last operation from ${new Date(lastOp.timestamp).toLocaleString()}`, LogLevel.DEBUG);
 
         let revertedFiles = 0;
         for (const ch of lastOp.changes) {
@@ -76,23 +76,23 @@ export default class RegexFindReplacePlugin extends Plugin {
                 if (af && af instanceof TFile) {
                     await this.app.vault.modify(af, ch.before);
                     revertedFiles++;
-                    logger('Reverted file: ' + ch.path, 8);
+                    logger('Reverted file: ' + ch.path, LogLevel.DEBUG);
                 }
             } catch (e: any) {
-                logger('Error reverting file ' + ch.path + ': ' + e.message, 1);
+                logger('Error reverting file ' + ch.path + ': ' + e.message, LogLevel.ERROR);
             }
         }
 
         new Notice(`Reverted ${lastOp.count} replacement(s) in ${revertedFiles} file(s).`);
     }
 
-    getHistorySize(): number {
+    getHistoryCharCount(): number {
         return this.history.reduce((acc, op) => acc + op.changes.reduce((sum, ch) => sum + ch.before.length + ch.after.length, 0), 0);
     }
 
-    async performReplacements(matches: any[], searchRegex: RegExp | null, replaceText: string, findText: string) {
-        const fileChanges = new Map<TFile, any[]>();
-        const changes: any[] = [];
+    async performReplacements(matches: FileMatch[], searchRegex: RegExp | null, replaceText: string, findText: string) {
+        const fileChanges = new Map<TFile, FileMatch[]>();
+        const changes: FileChange[] = [];
         let totalReplacements = 0;
 
         for (const m of matches) {
@@ -100,35 +100,65 @@ export default class RegexFindReplacePlugin extends Plugin {
             fileChanges.get(m.file)!.push(m);
         }
 
+        const activeFile = this.app.workspace.getActiveFile();
+        const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+        const editor = activeView?.editor;
+
         for (const [file, fileMatches] of fileChanges.entries()) {
             try {
-                const original = await this.app.vault.read(file);
-                const lines = original.split('\n');
+                fileMatches.sort((a, b) => (a.lineNum !== b.lineNum) ? b.lineNum - a.lineNum : b.match.start - a.match.start);
 
-                fileMatches.sort((a: any, b: any) => (a.lineNum !== b.lineNum) ? b.lineNum - a.lineNum : b.match.start - a.match.start);
-
-                for (const m of fileMatches) {
-                    const line = lines[m.lineNum];
-                    let replacement = getReplacementText(this.settings.useRegEx, m.match.text, searchRegex, replaceText);
+                if (file === activeFile && editor) {
+                    // C1: Use Editor API for active file
+                    const original = await this.app.vault.read(file);
                     
-                    if (this.settings.processLineBreak) {
-                        replacement = replacement.replace(/\\n/g, '\n');
+                    editor.transaction({
+                        changes: fileMatches.map(m => {
+                            let replacement = getReplacementText(this.settings.useRegEx, m.match.text, searchRegex, replaceText);
+                            if (this.settings.processLineBreak) replacement = replacement.replace(/\\n/g, '\n');
+                            if (this.settings.processTab) replacement = replacement.replace(/\\t/g, '\t');
+                            
+                            return {
+                                from: { line: m.lineNum, ch: m.match.start },
+                                to: { line: m.lineNum, ch: m.match.end },
+                                text: replacement
+                            };
+                        })
+                    });
+                    
+                    const modified = editor.getValue();
+                    if (modified !== original) {
+                        changes.push({ path: file.path, before: original, after: modified });
                     }
-                    if (this.settings.processTab) {
-                        replacement = replacement.replace(/\\t/g, '\t');
+                    totalReplacements += fileMatches.length;
+                    
+                } else {
+                    const original = await this.app.vault.read(file);
+                    const lines = original.split('\n');
+
+                    for (const m of fileMatches) {
+                        const line = lines[m.lineNum];
+                        let replacement = getReplacementText(this.settings.useRegEx, m.match.text, searchRegex, replaceText);
+                        
+                        if (this.settings.processLineBreak) {
+                            replacement = replacement.replace(/\\n/g, '\n');
+                        }
+                        if (this.settings.processTab) {
+                            replacement = replacement.replace(/\\t/g, '\t');
+                        }
+
+                        lines[m.lineNum] = line.slice(0, m.match.start) + replacement + line.slice(m.match.end);
+                        totalReplacements++;
                     }
 
-                    lines[m.lineNum] = line.slice(0, m.match.start) + replacement + line.slice(m.match.end);
-                    totalReplacements++;
-                }
-
-                const modified = lines.join('\n');
-                if (modified !== original) {
-                    await this.app.vault.modify(file, modified);
-                    changes.push({ path: file.path, before: original, after: modified });
+                    const modified = lines.join('\n');
+                    if (modified !== original) {
+                        await this.app.vault.modify(file, modified);
+                        changes.push({ path: file.path, before: original, after: modified });
+                    }
                 }
             } catch (e: any) {
-                logger('Error processing file: ' + file.path + ' -> ' + e.message, 1);
+                logger('Error processing file: ' + file.path + ' -> ' + e.message, LogLevel.ERROR);
             }
         }
 
@@ -144,7 +174,7 @@ export default class RegexFindReplacePlugin extends Plugin {
                 changes
             };
             this.history.push(op);
-            while (this.history.length > MAX_HISTORY || this.getHistorySize() > 10000000) {
+            while (this.history.length > MAX_HISTORY || this.getHistoryCharCount() > 10000000) {
                 if (this.history.length <= 1) break; // retain at least 1 history item
                 this.history.shift();
             }

@@ -1,7 +1,14 @@
-export const logThreshold = 9;
+export enum LogLevel {
+    DEBUG = 0,
+    INFO = 5,
+    WARN = 8,
+    ERROR = 10
+}
 
-export const logger = (msg: string, lvl: number = 0) => { 
-    if (lvl <= logThreshold) console.log('RegexFiRe:', msg); 
+export const logThreshold = LogLevel.INFO;
+
+export const logger = (msg: string, lvl: LogLevel = LogLevel.DEBUG) => { 
+    if (lvl >= logThreshold) console.log('RegexFiRe:', msg); 
 };
 
 export const debounce = <T extends (...args: any[]) => void>(fn: T, delay: number = 300) => {

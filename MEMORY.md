@@ -8,6 +8,8 @@ src/
 ├── main.ts # Entry point. Defines the Plugin class, settings logic, undo functions, and replace mechanism.
 ├── view.ts # ItemView implementation. Rich UI with previews, pagination, checkboxes for replace, and async background search.
 ├── settingsTab.ts # Configuration tab in Obsidian settings.
+├── ui.ts # Pure UI generic components and preview layout helpers.
+├── search.ts # Isolated math logic for raw regex and search loops.
 ├── utils.ts # Helper functions (logger, debounce, buildRegex).
 └── types.ts # Type definitions, constants, and interface for settings/history.
 test/
@@ -27,8 +29,9 @@ test/
 - Vault modifications are tracked in a custom `history` array to allow undo. Memory limits logic kept via `MAX_HISTORY = 10`.
 
 ## Insights
-- `view.ts` is exceptionally large (~600 lines) and mixes UI creation, DOM event mapping, and complex search string/regex processing logic.
-- `getReplacementText` logic is duplicated between `view.ts` and `main.ts`.
+- `view.ts` previously mixed UI creation, DOM event mapping, and search logic. Pure search math was safely extracted to `src/search.ts` (`findAllMatchesInLine`) to reduce bloat while keeping DOM orchestration cohesive.
+- Types like `FileMatch` and `MatchLocation` are strictly typed to replace old `any[]` properties.
+- Performance: Multi-term (pipe) searches pre-compile `RegExp` arrays prior to iteration to avoid tight-loop GC stalling on massive vaults.
 
 ## Blunders
 None recorded yet.
