@@ -1,0 +1,63 @@
+import { requestUrl } from 'obsidian';
+import { logger, LogLevel } from './utils';
+import { RegexFindReplaceSettings } from './types';
+
+export async function generateRegex(prompt: string, settings: RegexFindReplaceSettings): Promise<string> {
+    const { aiApiKey, aiModel, aiBaseUrl } = settings;
+
+    if (!aiApiKey) {
+        throw new Error('API Key is missing. Please configure it in settings.');
+    }
+
+    const systemPrompt = `You are a regex generator.
+The user will provide a natural language description of what they want to find.
+Your job is to output ONLY the raw, valid JavaScript Regular Expression that matches their description.
+DO NOT include any explanations, markdown formatting, slashes at the start/end, or flags. Just the raw regex string itself.`;
+
+    const body = {
+        model: aiModel || 'gemma-4-31b-it',
+        messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: prompt }
+        ],
+        temperature: 0.1,
+        max_tokens: 150
+    };
+
+    try {
+        logger(`Generating regex via ${aiBaseUrl} for model ${body.model}`, LogLevel.DEBUG);
+        
+        const response = await requestUrl({
+            url: aiBaseUrl || 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${aiApiKey}`
+            },
+            body: JSON.stringify(body)
+        });
+
+        if (response.status !== 200) {
+            throw new Error(`API Error ${response.status}: ${response.text}`);
+        }
+
+        const data = response.json;
+        if (data.choices && data.choices.length > 0 && data.choices[0].message) {
+            let regexStr = data.choices[0].message.content.trim();
+            // remove surrounding backticks if present
+            regexStr = regexStr.replace(/^`+|`+$/g, '');
+            // remove surrounding js regex blocks if present
+            regexStr = regexStr.replace(/^regex\n/, '');
+            // remove leading/trailing slashes if the LLM adds them
+            if (regexStr.startsWith('/') && regexStr.lastIndexOf('/') > 0) {
+                regexStr = regexStr.substring(1, regexStr.lastIndexOf('/'));
+            }
+            return regexStr.trim();
+        } else {
+            throw new Error('Unexpected response format from API');
+        }
+    } catch (e: any) {
+        logger(`Failed to generate regex: ${e.message}`, LogLevel.ERROR);
+        throw e;
+    }
+}

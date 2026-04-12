@@ -31,7 +31,7 @@ export function createFlagButton(container: HTMLElement, label: string, svgConte
 export interface PreviewOptions {
     replaceEnabled: boolean;
     pendingReplacement: boolean;
-    useRegEx: boolean;
+    isRegexMode: boolean;
     searchRegex: RegExp | null;
     replaceText: string;
 }
@@ -45,7 +45,7 @@ export function renderMatchPreview(container: HTMLElement, match: FileMatch, opt
 
     const showReplacement = options.replaceEnabled && options.pendingReplacement;
     const replacement = showReplacement
-        ? getReplacementText(options.useRegEx, text, options.searchRegex, options.replaceText)
+        ? getReplacementText(options.isRegexMode, text, options.searchRegex, options.replaceText)
         : null;
     const hasChange = replacement !== null && replacement !== text;
 

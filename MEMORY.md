@@ -1,17 +1,18 @@
 # Project: super-regex
 
 ## Overview
-Obsidian plugin for finding and replacing text using regular expressions across specific files, folders, or the entire vault. Uses a custom view pane with RegEx options (case insensitive, whole word), inline replace previews, prominent undo banners, export-to-clipboard functionality, and pipe-based multiple term matching logic.
+Obsidian plugin for finding and replacing text across specific files, folders, or the entire vault. Supports three search modes: plain Text, RegEx, and AI (natural language → regex via Gemini API). Uses a custom view pane with inline replace previews, prominent undo banners, export-to-clipboard, and pipe-based multi-term matching.
 
 ## Structure
 src/
 ├── main.ts # Entry point. Defines the Plugin class, settings logic, undo functions, and replace mechanism.
 ├── view.ts # ItemView implementation. Rich UI with previews, folder scoped picker, export, and pending/undo execution logic.
-├── settingsTab.ts # Configuration tab in Obsidian settings.
+├── settingsTab.ts # Configuration tab in Obsidian settings. (AI API configurations added here).
 ├── ui.ts # Pure UI generic components and preview layout helpers (inline match rendering).
 ├── search.ts # Isolated math logic for raw regex and search loops.
+├── ai.ts # AI Service connected via OpenAI API standard endpoints to generate regex strings from Natural Language.
 ├── utils.ts # Helper functions (debounce, buildRegex, getReplacementText).
-└── types.ts # Type definitions, constants, and interface for settings/history.
+└── types.ts # Type definitions, constants, and interface for settings/history. SearchMode replaces boolean regex toggles.
 test/
 └── utils.test.ts # Tests
 
@@ -34,7 +35,12 @@ test/
 - The CSS selector `.cm-s-obsidian` is only for Obsidian CM5 legacy mode. Use `.cm-editor` for CodeMirror 6 active line targeting.
 - Settings `folderScope` restricts searches by prepending paths to `getMarkdownFiles()`.
 - Search limits are enforced globally per query via `MAX_MATCHES` constant.
+- AI mode uses Google's OpenAI-compatible endpoint (`generativelanguage.googleapis.com/v1beta/openai/`). Default model: `gemma-4-31b-it`. User configures API key + model + base URL in settings.
+- `SearchMode` type (`'text' | 'regex' | 'ai'`) replaces old boolean `useRegEx`. AI mode generates regex server-side then feeds it through the same search pipeline as manual regex.
+- In AI mode, `performSearch(overrideRegexStr)` receives the generated pattern. `submitReplacements` must pass `currentAiRegexRaw` so post-replace re-search doesn't try to parse the natural language prompt as regex.
 
 ## Blunders
 - SVG injection directly to `innerHTML` violates Obsidian community API security standards. Use `DOMParser.parseFromString` instead. Fix implemented in `ui.ts`.
 - Memory leak in `setInterval`/`watch` on dev environment. Build watch natively handled by `fs.watch` now.
+- Obsidian `createEl('option', { value: 'x' })` does NOT set the `value` attribute. Must set `.value` on the returned element explicitly.
+- Removed `processLineBreak`, `processTab`, `prefillFind` settings. If old `data.json` has them, `Object.assign` in `loadSettings` ignores unknown keys harmlessly.

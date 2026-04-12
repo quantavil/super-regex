@@ -1,31 +1,33 @@
 import { TFile } from 'obsidian';
 
+export type SearchMode = 'text' | 'regex' | 'ai';
+
 export interface RegexFindReplaceSettings {
     findText: string;
     replaceText: string;
-    useRegEx: boolean;
+    searchMode: SearchMode;
     caseInsensitive: boolean;
-    processLineBreak: boolean;
-    processTab: boolean;
-    prefillFind: boolean;
     allFiles: boolean;
     replaceEnabled: boolean;
     wholeWord: boolean;
     folderScope: string;
+    aiApiKey: string;
+    aiModel: string;
+    aiBaseUrl: string;
 }
 
 export const DEFAULT_SETTINGS: RegexFindReplaceSettings = {
     findText: '',
     replaceText: '',
-    useRegEx: true,
+    searchMode: 'regex',
     caseInsensitive: false,
-    processLineBreak: false,
-    processTab: false,
-    prefillFind: false,
     allFiles: false,
     replaceEnabled: true,
     wholeWord: false,
-    folderScope: ''
+    folderScope: '',
+    aiApiKey: '',
+    aiModel: 'gemma-4-31b-it',
+    aiBaseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
 };
 
 export const MAX_MATCHES = 10000;
@@ -40,7 +42,7 @@ export interface MatchOperation {
     count: number;
     find: string;
     replace: string;
-    useRegEx: boolean;
+    searchMode: SearchMode;
     regexFlags: string;
     changes: Array<FileChange>;
 }

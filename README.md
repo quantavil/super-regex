@@ -1,26 +1,36 @@
 # Super Regex
 
-Super Regex is an advanced Find & Replace plugin for Obsidian. It provides a dedicated view pane allowing you to securely perform complex regular expression text replacements across single documents, specific folders, or your entire vault.
+Super Regex is an advanced Find & Replace plugin for Obsidian. It provides a dedicated view pane for performing text replacements across single documents, specific folders, or your entire vault — with full regex support and AI-powered natural language search.
 
 ## Features
 
-*   **Advanced Search & Replace:** Full support for JavaScript Regex including capture groups (`$1`, `$2`), case insensitivity, and whole word matching.
+*   **AI-Powered Search ✨:** Describe what you want to find in plain English (e.g. "email addresses", "dates in YYYY-MM-DD format"). The plugin uses Google's Gemini API to generate the regex for you automatically.
+*   **Three Search Modes:** Switch between **Text** (literal), **RegEx** (manual regex with capture groups, flags), and **AI** (natural language → regex) via a simple dropdown.
 *   **Flexible Scoping:** Search your entire vault, restrict to specific folders via a fuzzy finder, or search within the currently active document.
-*   **Granular Control:** Preview specific match contexts inline. Matches are shown alongside your replacement text in real-time. Select individual lines using checkboxes before committing replacements.
-*   **Safe Undo Mechanism:** A prominent Undo banner appears immediately after bulk operations, allowing you to quickly reverse replacements. Protected by a history cap to prevent memory leaks on enormous vaults.
-*   **Export Matches:** Copy all grep-style match results (`file:line:col: text`) directly to your clipboard.
-*   **Plaintext Pipe Matching:** Separate multiple words using standard pipes (`|`) when Regex is disabled to quickly track which exact words were "Not Found".
-*   **Keyboard Friendly:** Press `Ctrl/Cmd+Enter` to search and `Ctrl/Cmd+Shift+Enter` to execute replacements directly from the input fields.
+*   **Granular Control:** Preview match contexts inline with real-time replacement previews. Select individual matches using checkboxes before committing.
+*   **Safe Undo Mechanism:** A prominent Undo banner appears after bulk operations, allowing quick reversal. Protected by a history cap.
+*   **Export Matches:** Copy all grep-style match results (`file:line:col: text`) to clipboard.
+*   **Plaintext Pipe Matching:** Separate multiple words using pipes (`|`) in Text mode to track which terms were "Not Found".
+*   **Keyboard Friendly:** `Ctrl/Cmd+Enter` to search, `Ctrl/Cmd+Shift+Enter` to replace.
 
 ## How to Use
 
-1. Click the **Search** icon in the left ribbon or invoke the command `Open Find and Replace panel`.
-2. Enter your query in the *Find* input. Use toggles like `RegEx` or `All Files` according to your scope.
-3. Click the `📁 All` chip to restrict your search to a specific folder.
-4. Define the replacement string in the *Replace* input (using `$1` syntax if applying Regex groups).
-5. Review inline match previews in the results pane.
-6. Hit **Replace Checked** to execute the operation.
-7. Made a mistake? Click **Undo** on the success banner that appears—or use the dedicated Undo button/command.
+1. Click the **Search** icon in the left ribbon or invoke `Open Find and Replace panel`.
+2. Select your **Mode** — Text, RegEx, or AI ✨.
+3. Enter your query in the *Find* input:
+   - **Text/RegEx mode:** Enter search pattern directly.
+   - **AI mode:** Describe what you're looking for in natural language, then press Enter.
+4. Toggle `All Files` and click `📁 All` to restrict to a folder if needed.
+5. Define the replacement string in the *Replace* input.
+6. Review inline match previews in the results pane.
+7. Hit **Replace Checked** to execute.
+8. Made a mistake? Click **Undo** on the banner or use the Undo button/command.
+
+## AI Setup
+
+1. Go to **Settings → Super Regex → AI Configuration**.
+2. Enter your **API Key** (Google Gemini API key).
+3. The default model is `gemma-4-31b-it` and the default endpoint is Google's OpenAI-compatible API. You can change both to use any OpenAI-compatible provider.
 
 ## Author
 
@@ -28,4 +38,4 @@ Quantavil
 
 ## Version
 
-1.0.2
+1.0.3

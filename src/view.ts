@@ -1,6 +1,6 @@
 import { ItemView, WorkspaceLeaf, Notice, TFile, MarkdownView, Menu, FuzzySuggestModal, TFolder } from 'obsidian';
 import type RegexFindReplacePlugin from './main';
-import { VIEW_TYPE_REGEX_FIND_REPLACE, PAGE_SIZE, MAX_MATCHES, FileMatch } from './types';
+import { VIEW_TYPE_REGEX_FIND_REPLACE, PAGE_SIZE, MAX_MATCHES, FileMatch, SearchMode } from './types';
 import { debounce, buildRegex, getReplacementText } from './utils';
 import { findAllMatchesInLine, SearchConfig } from './search';
 import { createToggle, createFlagButton, renderMatchPreview } from './ui';
@@ -33,6 +33,7 @@ export class RegexFindReplaceView extends ItemView {
     searchInProgress: boolean;
     currentSearchRegex: RegExp | null = null;
     currentSearchText: string = '';
+    currentAiRegexRaw: string = '';
 
     findInput!: HTMLTextAreaElement;
     replaceInput!: HTMLTextAreaElement;
@@ -119,12 +120,28 @@ export class RegexFindReplaceView extends ItemView {
         // --- Options row ---
         const optionsContainer = searchSection.createDiv('options-container');
 
-        createToggle(optionsContainer, 'RegEx', this.plugin.settings.useRegEx, (value) => {
-            this.plugin.settings.useRegEx = value;
+        // --- Mode switcher ---
+        const modeContainer = optionsContainer.createDiv('mode-switcher-container');
+        modeContainer.createEl('span', { text: 'Mode:', cls: 'mode-label' });
+        
+        const modeSelect = modeContainer.createEl('select', { cls: 'mode-select' });
+        const optText = modeSelect.createEl('option', { text: 'Text' });
+        optText.value = 'text';
+        const optRegex = modeSelect.createEl('option', { text: 'RegEx' });
+        optRegex.value = 'regex';
+        const optAi = modeSelect.createEl('option', { text: 'AI ✨' });
+        optAi.value = 'ai';
+        modeSelect.value = this.plugin.settings.searchMode;
+        
+        modeSelect.onchange = () => {
+            this.plugin.settings.searchMode = modeSelect.value as SearchMode;
             this.plugin.saveSettings();
             this.updateRegexFlagsVisibility();
-            this.performSearch();
-        });
+            this.updateFindPlaceholder();
+            if (this.plugin.settings.searchMode !== 'ai') {
+                this.performSearch();
+            }
+        };
 
         createToggle(optionsContainer, 'All Files', this.plugin.settings.allFiles, (value) => {
             this.plugin.settings.allFiles = value;
@@ -200,12 +217,15 @@ export class RegexFindReplaceView extends ItemView {
 
         this.matchesContainer = this.resultsContainer.createDiv('matches-container');
         this.updateLoadMoreVisibility();
+        this.updateFindPlaceholder();
 
         // --- Event handlers ---
         this.findInput.oninput = () => {
             this.plugin.settings.findText = this.findInput.value;
             this.plugin.saveSettings();
-            this.debouncedSearch();
+            if (this.plugin.settings.searchMode !== 'ai') {
+                this.debouncedSearch();
+            }
         };
 
         const handleKeydown = (e: KeyboardEvent) => {
@@ -213,12 +233,12 @@ export class RegexFindReplaceView extends ItemView {
                 if (e.ctrlKey || e.metaKey) {
                     e.preventDefault();
                     if (e.shiftKey) this.replaceAll();
-                    else this.performSearch();
+                    else this.handleSearchOrGenerate();
                 } else if (!e.shiftKey && e.target === this.findInput) {
                     e.preventDefault();
                     this.plugin.settings.findText = this.findInput.value;
                     this.plugin.saveSettings();
-                    this.performSearch();
+                    this.handleSearchOrGenerate();
                 }
             }
         };
@@ -231,6 +251,14 @@ export class RegexFindReplaceView extends ItemView {
             this.plugin.saveSettings();
             this.updatePreviews();
         };
+    }
+
+    updateFindPlaceholder() {
+        if (this.plugin.settings.searchMode === 'ai') {
+            this.findInput.placeholder = 'Describe what to find (e.g. email addresses, dates)...';
+        } else {
+            this.findInput.placeholder = 'Search pattern…';
+        }
     }
 
     getAllFolders(): TFolder[] {
@@ -285,7 +313,7 @@ export class RegexFindReplaceView extends ItemView {
     }
 
     updateRegexFlagsVisibility() {
-        if (this.plugin.settings.useRegEx) {
+        if (this.plugin.settings.searchMode !== 'text') {
             this.wholeWordButton.style.display = 'flex';
         } else {
             this.wholeWordButton.style.display = 'none';
@@ -306,10 +334,49 @@ export class RegexFindReplaceView extends ItemView {
         this.updateFolderScopeVisibility();
     }
 
-    async performSearch() {
+    async handleSearchOrGenerate() {
+        if (this.plugin.settings.searchMode === 'ai') {
+            await this.generateAiRegex();
+        } else {
+            await this.performSearch();
+        }
+    }
+
+    async generateAiRegex() {
+        const prompt = this.findInput.value || '';
+        if (!prompt.trim()) return;
+
+        this.headerTextEl.setText('Generating RegEx via AI ✨...');
+        this.searchInProgress = true;
+        this.updateLoadMoreVisibility();
+        this.matchesContainer.empty();
+        
+        try {
+            // dynamic import to avoid failing to load plugin if something is wrong
+            const { generateRegex } = await import('./ai');
+            const result = await generateRegex(prompt, this.plugin.settings);
+            
+            this.currentAiRegexRaw = result;
+            
+            // Perform actual search with the generated regex
+            await this.performSearch(result);
+            
+        } catch (e: any) {
+            this.searchInProgress = false;
+            this.headerTextEl.setText(`AI Error: ${e.message}`);
+            this.updateLoadMoreVisibility();
+        }
+    }
+
+    async performSearch(overrideRegexStr?: string) {
         this.matches = [];
         this.pendingReplacements.clear();
         this.matchesContainer.empty();
+
+        // Show AI generated regex preview if we have one
+        if (overrideRegexStr && this.plugin.settings.searchMode === 'ai') {
+            this.matchesContainer.createEl('div', { text: `Generated RegEx: /${overrideRegexStr}/`, cls: 'ai-generated-regex-preview' });
+        }
         this.fileContainers = new Map();
         this.matchCounts = new Map();
 
@@ -330,11 +397,12 @@ export class RegexFindReplaceView extends ItemView {
             return;
         }
 
-        this.currentSearchText = searchText;
+        this.currentSearchText = overrideRegexStr || searchText;
 
-        const { useRegEx, caseInsensitive, allFiles, wholeWord } = this.plugin.settings;
+        const { searchMode, caseInsensitive, allFiles, wholeWord } = this.plugin.settings;
+        const isTextMode = searchMode === 'text';
 
-        const isPipeSearch = !useRegEx && searchText.includes('|');
+        const isPipeSearch = isTextMode && searchText.includes('|');
         const searchWords = isPipeSearch ? searchText.split('|').map(w => w.trim()).filter(Boolean) : [];
         const foundWords = isPipeSearch ? new Set<string>() : null;
         
@@ -355,9 +423,10 @@ export class RegexFindReplaceView extends ItemView {
         };
 
         let searchRegex: RegExp | null = null;
-        if (useRegEx) {
+        if (!isTextMode) {
             try {
-                searchRegex = buildRegex(searchText, { caseInsensitive, wholeWord });
+                const pat = overrideRegexStr || searchText;
+                searchRegex = buildRegex(pat, { caseInsensitive, wholeWord });
                 if (searchRegex.test('')) {
                     this.headerTextEl.setText('Pattern matches empty string — please refine');
                     this.searchInProgress = false;
@@ -551,10 +620,11 @@ export class RegexFindReplaceView extends ItemView {
             lineContainer.createEl('span', { text: `${match.lineNum + 1}:`, cls: 'line-number' });
 
             const previewEl = lineContainer.createDiv('match-preview');
+            const isRegexMode = this.plugin.settings.searchMode !== 'text';
             renderMatchPreview(previewEl, match, {
                 replaceEnabled: this.plugin.settings.replaceEnabled,
                 pendingReplacement: this.pendingReplacements.get(match.id) !== false,
-                useRegEx: this.plugin.settings.useRegEx,
+                isRegexMode,
                 searchRegex: this.currentSearchRegex,
                 replaceText: this.replaceInput.value
             });
@@ -609,10 +679,11 @@ export class RegexFindReplaceView extends ItemView {
         const previewEl = matchEl.querySelector('.match-preview');
         if (!previewEl) return;
         previewEl.empty();
+        const isRegexMode = this.plugin.settings.searchMode !== 'text';
         renderMatchPreview(previewEl as HTMLElement, match, {
             replaceEnabled: this.plugin.settings.replaceEnabled,
             pendingReplacement: this.pendingReplacements.get(match.id) !== false,
-            useRegEx: this.plugin.settings.useRegEx,
+            isRegexMode,
             searchRegex: this.currentSearchRegex,
             replaceText: this.replaceInput.value
         });
@@ -658,7 +729,9 @@ export class RegexFindReplaceView extends ItemView {
         const findText = this.findInput.value;
         await this.plugin.performReplacements(matches, this.currentSearchRegex, replaceText, findText);
         this.showUndoBanner(matches.length);
-        await this.performSearch();
+        // In AI mode, re-search with the generated regex, not the natural language prompt
+        const override = this.plugin.settings.searchMode === 'ai' ? this.currentAiRegexRaw : undefined;
+        await this.performSearch(override);
     }
 
     // F9: Prominent undo banner after replacement

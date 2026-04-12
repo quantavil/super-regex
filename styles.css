@@ -183,3 +183,22 @@
   background: var(--interactive-accent); color: var(--text-on-accent);
 }
 @keyframes slideIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Mode Switcher */
+.regex-find-replace-view .mode-switcher-container { display: flex; align-items: center; gap: 8px; margin-right: 10px; }
+.regex-find-replace-view .mode-label { font-size: 0.85em; color: var(--text-muted); font-weight: 500; }
+.regex-find-replace-view .mode-select {
+  background: var(--background-secondary); border: 1px solid var(--background-modifier-border);
+  border-radius: 4px; padding: 3px 8px; font-size: 0.85em; color: var(--text-normal);
+  cursor: pointer; transition: all 0.15s ease;
+}
+.regex-find-replace-view .mode-select:hover { background: var(--background-modifier-hover); }
+.regex-find-replace-view .mode-select:focus { outline: 2px solid var(--interactive-accent); outline-offset: -1px; }
+
+/* AI Generated Preview */
+.regex-find-replace-view .ai-generated-regex-preview {
+  background: var(--background-secondary); border: 1px solid var(--interactive-accent);
+  border-radius: 4px; padding: 6px 10px; margin-bottom: 15px; font-family: var(--font-monospace);
+  font-size: 0.85em; color: var(--interactive-accent); word-break: break-all;
+  animation: slideIn 0.2s ease-out;
+}

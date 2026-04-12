@@ -2,7 +2,7 @@ import { Plugin, Notice, TFile, MarkdownView } from 'obsidian';
 import { RegexFindReplaceSettingTab } from './settingsTab';
 import { RegexFindReplaceView } from './view';
 import { DEFAULT_SETTINGS, RegexFindReplaceSettings, VIEW_TYPE_REGEX_FIND_REPLACE, MatchOperation, MAX_HISTORY, FileMatch, FileChange } from './types';
-import { logger, getReplacementText, applyEscapes, LogLevel } from './utils';
+import { logger, getReplacementText, LogLevel } from './utils';
 
 export default class RegexFindReplacePlugin extends Plugin {
     settings!: RegexFindReplaceSettings;
@@ -116,9 +116,7 @@ export default class RegexFindReplacePlugin extends Plugin {
                     
                     editor.transaction({
                         changes: fileMatches.map(m => {
-                            let replacement = getReplacementText(this.settings.useRegEx, m.match.text, searchRegex, replaceText);
-                            replacement = applyEscapes(replacement, this.settings);
-                            
+                            let replacement = getReplacementText(this.settings.searchMode !== 'text', m.match.text, searchRegex, replaceText);
                             return {
                                 from: { line: m.lineNum, ch: m.match.start },
                                 to: { line: m.lineNum, ch: m.match.end },
@@ -139,10 +137,8 @@ export default class RegexFindReplacePlugin extends Plugin {
 
                     for (const m of fileMatches) {
                         const line = lines[m.lineNum];
-                        let replacement = getReplacementText(this.settings.useRegEx, m.match.text, searchRegex, replaceText);
+                        let replacement = getReplacementText(this.settings.searchMode !== 'text', m.match.text, searchRegex, replaceText);
                         
-                        replacement = applyEscapes(replacement, this.settings);
-
                         lines[m.lineNum] = line.slice(0, m.match.start) + replacement + line.slice(m.match.end);
                         totalReplacements++;
                     }
@@ -165,7 +161,7 @@ export default class RegexFindReplacePlugin extends Plugin {
                 count: totalReplacements,
                 find: findText,
                 replace: replaceText,
-                useRegEx: this.settings.useRegEx,
+                searchMode: this.settings.searchMode,
                 regexFlags: 'gm' + (this.settings.caseInsensitive ? 'i' : ''),
                 changes
             };

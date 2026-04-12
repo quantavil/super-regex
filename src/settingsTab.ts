@@ -25,35 +25,37 @@ export class RegexFindReplaceSettingTab extends PluginSettingTab {
                     await this.plugin.saveSettings();
                 }));
 
-        containerEl.createEl('h4', { text: 'General Settings' });
+        containerEl.createEl('h4', { text: 'AI Configuration' });
 
         new Setting(containerEl)
-            .setName('Process \\n as line break')
-            .setDesc('When \'\\n\' is used in the replace field, a \'line break\' will be inserted accordingly')
-            .addToggle(t => t
-                .setValue(this.plugin.settings.processLineBreak)
+            .setName('API Base URL')
+            .setDesc('OpenAI-compatible chat completions endpoint')
+            .addText(t => t
+                .setValue(this.plugin.settings.aiBaseUrl)
                 .onChange(async (value) => {
-                    this.plugin.settings.processLineBreak = value;
+                    this.plugin.settings.aiBaseUrl = value;
                     await this.plugin.saveSettings();
                 }));
 
         new Setting(containerEl)
-            .setName('Process \\t as tab')
-            .setDesc('When \'\\t\' is used in the replace field, a \'tab\' will be inserted accordingly')
-            .addToggle(t => t
-                .setValue(this.plugin.settings.processTab)
-                .onChange(async (value) => {
-                    this.plugin.settings.processTab = value;
-                    await this.plugin.saveSettings();
-                }));
+            .setName('API Key')
+            .setDesc('Your API key for the selected provider')
+            .addText(t => {
+                t.inputEl.type = 'password';
+                t.setValue(this.plugin.settings.aiApiKey)
+                 .onChange(async (value) => {
+                     this.plugin.settings.aiApiKey = value;
+                     await this.plugin.saveSettings();
+                 });
+            });
 
         new Setting(containerEl)
-            .setName('Prefill Find Field')
-            .setDesc('Copy the currently selected text (if any) into the \'Find\' text field')
-            .addToggle(t => t
-                .setValue(this.plugin.settings.prefillFind)
+            .setName('Model')
+            .setDesc('Model to use for generating regular expressions')
+            .addText(t => t
+                .setValue(this.plugin.settings.aiModel)
                 .onChange(async (value) => {
-                    this.plugin.settings.prefillFind = value;
+                    this.plugin.settings.aiModel = value;
                     await this.plugin.saveSettings();
                 }));
     }
