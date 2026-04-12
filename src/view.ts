@@ -54,6 +54,8 @@ export class RegexFindReplaceView extends ItemView {
     undoBanner!: HTMLElement;
     undoBannerTimer: ReturnType<typeof setTimeout> | null = null;
     updatePillsUI?: () => void;
+    aiBtn!: HTMLButtonElement;
+    originalPrompt: string | null = null;
 
     actionHandler: ActionHandler;
     searchController: SearchController;
@@ -112,8 +114,8 @@ export class RegexFindReplaceView extends ItemView {
         });
         this.findInput.value = this.plugin.settings.findText;
 
-        const aiBtn = findInputWrapper.createEl('button', { text: '✨', title: 'Convert natural language to RegEx', cls: 'ai-generate-btn-inline' });
-        aiBtn.onclick = () => this.generateAiRegex();
+        this.aiBtn = findInputWrapper.createEl('button', { text: '✨', title: 'Convert natural language to RegEx', cls: 'ai-generate-btn-inline' });
+        this.aiBtn.onclick = () => this.toggleAiRegex();
 
         this.regexFlagsContainer = findInputWrapper.createDiv('regex-flags-container');
         this.createRegexFlagButtons();
@@ -322,8 +324,10 @@ export class RegexFindReplaceView extends ItemView {
     updateRegexFlagsVisibility() {
         if (this.plugin.settings.searchMode !== 'text') {
             this.wholeWordButton.style.display = 'flex';
+            if (this.aiBtn) this.aiBtn.style.display = 'block';
         } else {
             this.wholeWordButton.style.display = 'none';
+            if (this.aiBtn) this.aiBtn.style.display = 'none';
         }
     }
 
@@ -337,11 +341,24 @@ export class RegexFindReplaceView extends ItemView {
         this.updateFolderScopeVisibility();
     }
 
-    async generateAiRegex() {
+    async toggleAiRegex() {
+        if (this.originalPrompt !== null) {
+            // Revert off
+            this.findInput.value = this.originalPrompt;
+            this.plugin.settings.findText = this.originalPrompt;
+            this.originalPrompt = null;
+            this.aiBtn.classList.remove('active');
+            this.plugin.saveSettings();
+            await this.searchController.performSearch();
+            return;
+        }
+
         let prompt = this.findInput.value || '';
         prompt = prompt.trim();
         if (!prompt) return;
 
+        this.originalPrompt = prompt;
+        this.aiBtn.classList.add('active');
         this.headerTextEl.setText('Generating RegEx via AI ✨...');
         this.searchInProgress = true;
         this.updateLoadMoreVisibility();
@@ -359,10 +376,13 @@ export class RegexFindReplaceView extends ItemView {
             this.updatePillsUI?.();
             this.updateRegexFlagsVisibility();
             
+            this.searchInProgress = false; // Allow search to proceed and update header
             await this.searchController.performSearch();
             
         } catch (e: any) {
             this.searchInProgress = false;
+            this.originalPrompt = null;
+            this.aiBtn.classList.remove('active');
             this.headerTextEl.setText(`AI Error: ${e.message}`);
             this.updateLoadMoreVisibility();
         }
