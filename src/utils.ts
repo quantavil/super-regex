@@ -18,3 +18,14 @@ export const buildRegex = (pattern: string, options: { caseInsensitive?: boolean
   if (options.wholeWord) patt = `\\b(?:${patt})\\b`;
   return new RegExp(patt, flags);
 };
+
+export const getReplacementText = (useRegEx: boolean, matchText: string, searchRegex: RegExp | null, replaceText: string) => {
+    if (useRegEx && searchRegex) {
+        try {
+            return matchText.replace(searchRegex, replaceText);
+        } catch (_) {
+            return matchText;
+        }
+    }
+    return replaceText;
+};

@@ -2,7 +2,7 @@ import { Plugin, Notice, TFile } from 'obsidian';
 import { RegexFindReplaceSettingTab } from './settingsTab';
 import { RegexFindReplaceView } from './view';
 import { DEFAULT_SETTINGS, RegexFindReplaceSettings, VIEW_TYPE_REGEX_FIND_REPLACE, MatchOperation, MAX_HISTORY } from './types';
-import { logger } from './utils';
+import { logger, getReplacementText } from './utils';
 
 export default class RegexFindReplacePlugin extends Plugin {
     settings!: RegexFindReplaceSettings;
@@ -86,15 +86,8 @@ export default class RegexFindReplacePlugin extends Plugin {
         new Notice(`Reverted ${lastOp.count} replacement(s) in ${revertedFiles} file(s).`);
     }
 
-    getReplacementText(matchText: string, searchRegex: RegExp | null, replaceText: string) {
-        if (this.settings.useRegEx && searchRegex) {
-            try {
-                return matchText.replace(searchRegex, replaceText);
-            } catch (_) {
-                return matchText;
-            }
-        }
-        return replaceText;
+    getHistorySize(): number {
+        return this.history.reduce((acc, op) => acc + op.changes.reduce((sum, ch) => sum + ch.before.length + ch.after.length, 0), 0);
     }
 
     async performReplacements(matches: any[], searchRegex: RegExp | null, replaceText: string, findText: string) {
@@ -116,7 +109,7 @@ export default class RegexFindReplacePlugin extends Plugin {
 
                 for (const m of fileMatches) {
                     const line = lines[m.lineNum];
-                    let replacement = this.getReplacementText(m.match.text, searchRegex, replaceText);
+                    let replacement = getReplacementText(this.settings.useRegEx, m.match.text, searchRegex, replaceText);
                     
                     if (this.settings.processLineBreak) {
                         replacement = replacement.replace(/\\n/g, '\n');
@@ -135,7 +128,7 @@ export default class RegexFindReplacePlugin extends Plugin {
                     changes.push({ path: file.path, before: original, after: modified });
                 }
             } catch (e: any) {
-                console.error('Error processing file: ' + file.path + ' -> ' + e.message);
+                logger('Error processing file: ' + file.path + ' -> ' + e.message, 1);
             }
         }
 
@@ -151,7 +144,10 @@ export default class RegexFindReplacePlugin extends Plugin {
                 changes
             };
             this.history.push(op);
-            if (this.history.length > MAX_HISTORY) this.history.shift();
+            while (this.history.length > MAX_HISTORY || this.getHistorySize() > 10000000) {
+                if (this.history.length <= 1) break; // retain at least 1 history item
+                this.history.shift();
+            }
         }
 
         new Notice(`Replaced ${totalReplacements} match${totalReplacements !== 1 ? 'es' : ''} in ${changes.length} file${changes.length !== 1 ? 's' : ''}`);

@@ -1,7 +1,7 @@
 import { ItemView, WorkspaceLeaf, ToggleComponent, Notice, TFile, MarkdownView } from 'obsidian';
 import type RegexFindReplacePlugin from './main';
 import { VIEW_TYPE_REGEX_FIND_REPLACE, PAGE_SIZE, MAX_MATCHES, MAX_HISTORY } from './types';
-import { debounce, buildRegex } from './utils';
+import { debounce, buildRegex, getReplacementText } from './utils';
 
 export class RegexFindReplaceView extends ItemView {
     plugin: RegexFindReplacePlugin;
@@ -256,8 +256,7 @@ export class RegexFindReplaceView extends ItemView {
         this.currentSearchText = searchText;
         const { useRegEx, caseInsensitive, allFiles, wholeWord } = this.plugin.settings;
 
-
-        const isPipeSearch = searchText.includes('|');
+        const isPipeSearch = !useRegEx && searchText.includes('|');
         const searchWords = isPipeSearch ? searchText.split('|').map(w => w.trim()).filter(Boolean) : [];
         const foundWords = isPipeSearch ? new Set<string>() : null;
 
@@ -513,7 +512,7 @@ export class RegexFindReplaceView extends ItemView {
         const highlightEl = container.createEl('span', { text, cls: 'match-highlight' });
 
         if (this.plugin.settings.replaceEnabled && this.pendingReplacements.get(match.id) !== false) {
-            const replacement = this.getReplacementText(text);
+            const replacement = getReplacementText(this.plugin.settings.useRegEx, text, this.currentSearchRegex, this.replaceInput.value ?? '');
             if (replacement !== text) {
                 highlightEl.addClass('has-replacement');
                 const replacementEl = container.createDiv('replacement-preview');
@@ -524,17 +523,6 @@ export class RegexFindReplaceView extends ItemView {
 
         container.createEl('span', { text: line.substring(end, contextEnd), cls: 'context' });
         if (contextEnd < line.length) container.createEl('span', { text: '...', cls: 'ellipsis' });
-    }
-
-    getReplacementText(matchText: string, searchRegex: RegExp | null = this.currentSearchRegex, replaceText: string = this.replaceInput.value ?? '') {
-        if (this.plugin.settings.useRegEx && searchRegex) {
-            try {
-                return matchText.replace(searchRegex, replaceText);
-            } catch (_) {
-                return matchText;
-            }
-        }
-        return replaceText;
     }
 
     updatePreviews() {

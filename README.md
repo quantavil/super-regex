@@ -1,25 +1,23 @@
 # Super Regex
 
-Super Regex is a plugin for Obsidian that allows you to create, manage, and apply custom regular expressions to your notes.
+Super Regex is an advanced Find & Replace plugin for Obsidian. It provides a dedicated view pane allowing you to securely perform complex regular expression text replacements across single documents or your entire vault.
 
 ## Features
 
-*   Create, edit, and delete custom regular expression rules.
-*   Apply saved regular expressions to your notes.
-*   Access Super Regex from the Obsidian status bar.
+*   **Advanced Search & Replace:** Full support for JavaScript Regex including capture groups (`$1`, `$2`), case insensitivity, and whole word matching.
+*   **Vault-Wide Processing:** Execute bulk search and replaces asynchronously across all files in your vault without locking the UI.
+*   **Granular Control:** Preview specific match contexts, select individual lines using checkboxes before committing replacements.
+*   **Safe Undo Mechanism:** Robust undo operation stack protected by a 20MB history cap to prevent memory leaks and out-of-memory crashes on enormous vaults.
+*   **Plaintext Pipe Matching:** Separate multiple words using standard pipes (`|`) when Regex is disabled to quickly track which exact words were "Not Found".
 
 ## How to Use
 
-1.  Click on the "Super Regex" item in the status bar to open the Super Regex modal.
-2.  In the modal, you can create new regular expression rules by providing a name and the regex pattern.
-3.  Select a rule from the list to apply it to the current active note.
-4.  You can also edit or delete existing rules from the modal.
-
-## Installation
-
-1.  Download the latest release from the releases page.
-2.  Extract the contents of the zip file into your Obsidian plugins folder.
-3.  Enable the plugin in the Obsidian settings.
+1. Click the **Search** icon in the left ribbon or invoke the command `Open Find and Replace panel`.
+2. Enter your query in the *Find* input. Use toggles like `Use RegEx` or `All Files` according to your scope.
+3. Define the replacement string in the *Replace* input (using `$1` syntax if applying Regex groups).
+4. Review highlighted match previews in the results pane.
+5. Hit **Replace All** or uncheck specific entries and use **Replace Selected**.
+6. Made a mistake? Run the command `Regex Find/Replace: Revert last operation` to instantly undo it.
 
 ## Author
 
