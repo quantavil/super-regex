@@ -1,0 +1,11 @@
+# Dependencies
+node_modules/
+
+# Build Output
+dist/
+
+# macOS
+.DS_Store
+
+# Temporary files
+/tmp/

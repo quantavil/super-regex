@@ -1,153 +1,42 @@
-'use strict';
+import { ItemView, WorkspaceLeaf, ToggleComponent, Notice, TFile, MarkdownView } from 'obsidian';
+import type RegexFindReplacePlugin from './main';
+import { VIEW_TYPE_REGEX_FIND_REPLACE, PAGE_SIZE, MAX_MATCHES, MAX_HISTORY } from './types';
+import { debounce, buildRegex } from './utils';
 
-const {
-    Plugin,
-    ItemView,
-    ToggleComponent,
-    PluginSettingTab,
-    Setting,
-    TFile,
-    Notice,
-    MarkdownView
-} = require('obsidian');
+export class RegexFindReplaceView extends ItemView {
+    plugin: RegexFindReplacePlugin;
+    matches: any[];
+    pendingReplacements: Map<string, boolean>;
+    debouncedSearch: () => void;
+    renderLimit: number;
+    renderedCount: number;
+    fileContainers: Map<string, HTMLElement>;
+    initialBatchRendered: boolean;
+    searchInProgress: boolean;
+    currentSearchRegex: RegExp | null = null;
+    currentSearchText: string = '';
 
-/* ===========================
-   Constants / Utilities
-   =========================== */
-const VIEW_TYPE_REGEX_FIND_REPLACE = "regex-find-replace-view";
+    findInput!: HTMLTextAreaElement;
+    replaceInput!: HTMLInputElement;
+    replaceAllBtn!: HTMLButtonElement;
+    replaceSelectedBtn!: HTMLButtonElement;
+    deselectAllBtn!: HTMLButtonElement;
+    regexFlagsContainer!: HTMLElement;
+    resultsContainer!: HTMLElement;
+    resultsHeader!: HTMLElement;
+    headerTextEl!: HTMLElement;
+    loadMoreLink!: HTMLAnchorElement;
+    matchesContainer!: HTMLElement;
+    caseButton!: HTMLButtonElement;
+    wholeWordButton!: HTMLButtonElement;
 
-const DEFAULT_SETTINGS = {
-    findText: '',
-    replaceText: '',
-    useRegEx: true,
-    selOnly: false,
-    caseInsensitive: false,
-    processLineBreak: false,
-    processTab: false,
-    prefillFind: false,
-    allFiles: false,
-    replaceEnabled: true,
-    wholeWord: false
-};
-
-const MAX_MATCHES = 10000;
-const MAX_HISTORY = 10;
-const PAGE_SIZE = 1000;
-
-const logThreshold = 9;
-const logger = (msg, lvl = 0) => { if (lvl <= logThreshold) console.log('RegexFiRe:', msg); };
-
-const debounce = (fn, delay = 300) => {
-  let t;
-  return (...args) => {
-    clearTimeout(t);
-    t = setTimeout(() => fn(...args), delay);
-  };
-};
-
-// Centralized regex builder with whole-word support
-const buildRegex = (pattern, { caseInsensitive, wholeWord } = {}) => {
-  const flags = 'gm' + (caseInsensitive ? 'i' : '');
-  let patt = pattern;
-  if (wholeWord) patt = `\\b(?:${patt})\\b`;
-  return new RegExp(patt, flags);
-};
-
-/* ===========================
-   Plugin
-   =========================== */
-class RegexFindReplacePlugin extends Plugin {
-    async onload() {
-        logger('Loading Plugin...', 9);
-        this.history = [];
-        await this.loadSettings();
-
-        this.registerView(VIEW_TYPE_REGEX_FIND_REPLACE, (leaf) => new RegexFindReplaceView(leaf, this));
-        this.addSettingTab(new RegexFindReplaceSettingTab(this.app, this));
-
-        this.addRibbonIcon("search", "Open Regex Find & Replace", () => this.activateView());
-
-        this.addCommand({
-            id: 'open-regex-find-replace',
-            name: 'Open Find and Replace panel',
-            callback: () => this.activateView()
-        });
-
-        this.addCommand({
-            id: 'obsidian-regex-replace-undo',
-            name: 'Regex Find/Replace: Revert last operation',
-            callback: async () => await this.undoLast()
-        });
-
-    }
-
-    onunload() {
-        logger('Bye!', 9);
-        this.history = [];
-        this.app.workspace.detachLeavesOfType(VIEW_TYPE_REGEX_FIND_REPLACE);
-    }
-
-    async activateView() {
-        this.app.workspace.detachLeavesOfType(VIEW_TYPE_REGEX_FIND_REPLACE);
-        const leaf = this.app.workspace.getRightLeaf(false);
-        await leaf.setViewState({ type: VIEW_TYPE_REGEX_FIND_REPLACE, active: true });
-        this.app.workspace.revealLeaf(this.app.workspace.getLeavesOfType(VIEW_TYPE_REGEX_FIND_REPLACE)[0]);
-    }
-
-    async loadSettings() {
-        logger('Loading Settings...', 6);
-        this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-    }
-
-    async saveSettings() {
-        await this.saveData(this.settings);
-    }
-
-    async undoLast() {
-        if (!this.history?.length) {
-            new Notice('Nothing to revert.');
-            return;
-        }
-
-        const lastOp = this.history.pop();
-        if (!lastOp?.changes?.length) {
-            new Notice('Nothing to revert.');
-            return;
-        }
-
-        logger(`Reverting last operation from ${new Date(lastOp.timestamp).toLocaleString()}`, 6);
-
-        let revertedFiles = 0;
-        for (const ch of lastOp.changes) {
-            try {
-                const af = this.app.vault.getAbstractFileByPath(ch.path);
-                if (af && af instanceof TFile) {
-                    await this.app.vault.modify(af, ch.before);
-                    revertedFiles++;
-                    logger('Reverted file: ' + ch.path, 8);
-                }
-            } catch (e) {
-                logger('Error reverting file ' + ch.path + ': ' + e.message, 1);
-            }
-        }
-
-        new Notice(`Reverted ${lastOp.count} replacement(s) in ${revertedFiles} file(s).`);
-    }
-}
-
-/* ===========================
-   View
-   =========================== */
-class RegexFindReplaceView extends ItemView {
-    constructor(leaf, plugin) {
+    constructor(leaf: WorkspaceLeaf, plugin: RegexFindReplacePlugin) {
         super(leaf);
         this.plugin = plugin;
         this.matches = [];
-        this.currentMatchIndex = 0;
         this.pendingReplacements = new Map();
         this.debouncedSearch = debounce(() => this.performSearch(), 500);
 
-        // Paging / background search state
         this.renderLimit = PAGE_SIZE;
         this.renderedCount = 0;
         this.fileContainers = new Map();
@@ -155,12 +44,12 @@ class RegexFindReplaceView extends ItemView {
         this.searchInProgress = false;
     }
 
-    getViewType() { return VIEW_TYPE_REGEX_FIND_REPLACE; }
-    getDisplayText() { return "Find and Replace"; }
-    getIcon() { return "search"; }
+    getViewType(): string { return VIEW_TYPE_REGEX_FIND_REPLACE; }
+    getDisplayText(): string { return "Find and Replace"; }
+    getIcon(): string { return "search"; }
 
     async onOpen() {
-        const container = this.containerEl.children[1];
+        const container = this.containerEl.children[1] as HTMLElement;
         container.empty();
         container.addClass('regex-find-replace-view');
 
@@ -168,34 +57,30 @@ class RegexFindReplaceView extends ItemView {
         this.updateUI();
     }
 
-    createUI(container) {
-        // Search section
+    createUI(container: HTMLElement) {
         const searchSection = container.createDiv('search-section');
 
-        // Find input container
         const findContainer = searchSection.createDiv('input-container');
         findContainer.createEl('label', { text: 'Find:' });
 
         const findInputWrapper = findContainer.createDiv('find-input-wrapper');
 
         this.findInput = findInputWrapper.createEl('textarea', {
-            placeholder: 'Search pattern...',
-            value: this.plugin.settings.findText
+            placeholder: 'Search pattern...'
         });
+        this.findInput.value = this.plugin.settings.findText;
 
-        // Regex flags container
         this.regexFlagsContainer = findInputWrapper.createDiv('regex-flags-container');
         this.createRegexFlagButtons();
 
-        // Auto-resize textarea
         const autoResize = () => {
+            if (!this.findInput) return;
             this.findInput.style.height = 'auto';
             this.findInput.style.height = this.findInput.scrollHeight + 'px';
         };
         this.findInput.addEventListener('input', autoResize);
         setTimeout(autoResize, 0);
 
-        // Replace input
         const replaceContainer = searchSection.createDiv('input-container');
         replaceContainer.createEl('label', { text: 'Replace:' });
         this.replaceInput = replaceContainer.createEl('input', {
@@ -204,7 +89,6 @@ class RegexFindReplaceView extends ItemView {
             value: this.plugin.settings.replaceText
         });
 
-        // Options
         const optionsContainer = searchSection.createDiv('options-container');
 
         this.createToggle(optionsContainer, 'Use RegEx', this.plugin.settings.useRegEx, (value) => {
@@ -226,24 +110,19 @@ class RegexFindReplaceView extends ItemView {
             this.updateUI();
         });
 
-        // Buttons
         const buttonContainer = searchSection.createDiv('button-container');
 
         this.replaceAllBtn = buttonContainer.createEl('button', { text: 'Replace All', cls: 'mod-cta' });
         this.replaceSelectedBtn = buttonContainer.createEl('button', { text: 'Replace Selected', cls: 'mod-cta' });
 
-        // Deselect All
         this.deselectAllBtn = buttonContainer.createEl('button', { text: 'Deselect All', cls: 'mod-muted' });
         this.deselectAllBtn.onclick = () => this.deselectAll();
 
-        // Undo
         buttonContainer.createEl('button', { text: 'Undo', cls: 'mod-muted' }).onclick = () => this.plugin.undoLast();
 
-        // Results
         this.resultsContainer = container.createDiv('results-section');
         this.resultsHeader = this.resultsContainer.createDiv('results-header');
 
-        // Header text + clickable "Load more"
         this.headerTextEl = this.resultsHeader.createEl('span', { cls: 'results-header-text' });
         this.loadMoreLink = this.resultsHeader.createEl('a', {
             text: 'Load more',
@@ -256,7 +135,6 @@ class RegexFindReplaceView extends ItemView {
         this.matchesContainer = this.resultsContainer.createDiv('matches-container');
         this.updateLoadMoreVisibility();
 
-        // Events
         this.findInput.oninput = () => {
             this.plugin.settings.findText = this.findInput.value;
             this.plugin.saveSettings();
@@ -282,7 +160,7 @@ class RegexFindReplaceView extends ItemView {
         this.replaceSelectedBtn.onclick = () => this.replaceSelected();
     }
 
-    createToggle(container, label, value, onChange) {
+    createToggle(container: HTMLElement, label: string, value: boolean, onChange: (value: boolean) => void) {
         const toggleContainer = container.createDiv('toggle-container');
         const toggle = new ToggleComponent(toggleContainer);
         toggle.setValue(value);
@@ -292,7 +170,6 @@ class RegexFindReplaceView extends ItemView {
     }
 
     createRegexFlagButtons() {
-        // Match case (active = case sensitive)
         this.caseButton = this.createFlagButton(
             'Match case',
             `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-icon uppercase-lowercase-a"><path d="M10.5 14L4.5 14"></path><path d="M12.5 18L7.5 6"></path><path d="M3 18L7.5 6"></path><path d="M15.9526 10.8322C15.9526 10.8322 16.6259 10 18.3832 10C20.1406 9.99999 20.9986 11.0587 20.9986 11.9682V16.7018C20.9986 17.1624 21.2815 17.7461 21.7151 18"></path><path d="M20.7151 13.5C18.7151 13.5 15.7151 14.2837 15.7151 16C15.7151 17.7163 17.5908 18.2909 18.7151 18C19.5635 17.7804 20.5265 17.3116 20.889 16.6199"></path></svg>`,
@@ -304,7 +181,6 @@ class RegexFindReplaceView extends ItemView {
             }
         );
 
-        // Whole word
         this.wholeWordButton = this.createFlagButton(
             'Whole word',
             `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><line x1="9" y1="7" x2="15" y2="7"/><line x1="9" y1="11" x2="15" y2="11"/><line x1="9" y1="15" x2="11" y2="15"/></svg>`,
@@ -319,7 +195,7 @@ class RegexFindReplaceView extends ItemView {
         this.updateRegexFlagsVisibility();
     }
 
-    createFlagButton(label, svgContent, initialActive, onChange) {
+    createFlagButton(label: string, svgContent: string, initialActive: boolean, onChange: (active: boolean) => void) {
         const button = this.regexFlagsContainer.createEl('button', {
             cls: 'regex-flag-button' + (initialActive ? ' active' : ''),
             attr: { 'aria-label': label }
@@ -334,7 +210,6 @@ class RegexFindReplaceView extends ItemView {
     }
 
     updateRegexFlagsVisibility() {
-        // Case button always visible; whole-word only for regex mode
         if (this.plugin.settings.useRegEx) {
             this.wholeWordButton.style.display = 'flex';
         } else {
@@ -344,7 +219,7 @@ class RegexFindReplaceView extends ItemView {
 
     updateUI() {
         const enabled = this.plugin.settings.replaceEnabled;
-        const setDisabled = (el) => {
+        const setDisabled = (el: HTMLElement & { disabled?: boolean }) => {
             el.disabled = !enabled;
             el.toggleClass('disabled', !enabled);
         };
@@ -378,14 +253,15 @@ class RegexFindReplaceView extends ItemView {
             return;
         }
 
+        this.currentSearchText = searchText;
         const { useRegEx, caseInsensitive, allFiles, wholeWord } = this.plugin.settings;
 
-        // Pipe-separated tracking
+
         const isPipeSearch = searchText.includes('|');
         const searchWords = isPipeSearch ? searchText.split('|').map(w => w.trim()).filter(Boolean) : [];
-        const foundWords = isPipeSearch ? new Set() : null;
+        const foundWords = isPipeSearch ? new Set<string>() : null;
 
-        let searchRegex = null;
+        let searchRegex: RegExp | null = null;
         if (useRegEx) {
             try {
                 searchRegex = buildRegex(searchText, { caseInsensitive, wholeWord });
@@ -399,9 +275,10 @@ class RegexFindReplaceView extends ItemView {
                 this.headerTextEl.setText('Invalid regular expression');
                 this.searchInProgress = false;
                 this.updateLoadMoreVisibility();
-                return;
             }
         }
+
+        this.currentSearchRegex = searchRegex;
 
         let matchCount = 0;
         let limitReached = false;
@@ -412,7 +289,6 @@ class RegexFindReplaceView extends ItemView {
                 const fileMatchCount = await this.searchInFile(file, searchText, searchRegex, MAX_MATCHES - matchCount, foundWords);
                 matchCount += fileMatchCount;
                 if (matchCount >= MAX_MATCHES) { limitReached = true; break; }
-                // Yield to UI so it stays responsive
                 await new Promise(resolve => requestAnimationFrame(resolve));
             }
         } else {
@@ -433,10 +309,10 @@ class RegexFindReplaceView extends ItemView {
         this.searchInProgress = false;
         this.updateHeader(limitReached);
 
-        if (isPipeSearch) this.displayNotFoundWords(searchWords, foundWords);
+        if (isPipeSearch && foundWords) this.displayNotFoundWords(searchWords, foundWords);
     }
 
-    displayNotFoundWords(searchWords, foundWords) {
+    displayNotFoundWords(searchWords: string[], foundWords: Set<string>) {
         const notFoundWords = searchWords.filter(w => !foundWords.has(w));
         let notFoundContainer = this.resultsContainer.querySelector('.not-found-words-container');
 
@@ -468,7 +344,7 @@ class RegexFindReplaceView extends ItemView {
         }
     }
 
-    async searchInFile(file, searchText, searchRegex, maxMatches = MAX_MATCHES, foundWords = null) {
+    async searchInFile(file: TFile, searchText: string, searchRegex: RegExp | null, maxMatches = MAX_MATCHES, foundWords: Set<string> | null = null) {
         const content = await this.app.vault.read(file);
         const lines = content.split('\n');
         let fileMatchCount = 0;
@@ -514,7 +390,6 @@ class RegexFindReplaceView extends ItemView {
                 this.matches.push({ file, lineNum, line, match: m, id: `${file.path}-${lineNum}-${m.start}` });
                 fileMatchCount++;
 
-                // Render the first page as soon as we have it
                 this.maybeRenderInitialBatch();
             }
 
@@ -536,11 +411,10 @@ class RegexFindReplaceView extends ItemView {
         this.updateLoadMoreVisibility();
     }
 
-    // Actions
     deselectAll() {
         if (!this.plugin.settings.replaceEnabled) return;
         for (const m of this.matches) this.pendingReplacements.set(m.id, false);
-        this.matchesContainer.querySelectorAll('.match-checkbox').forEach(cb => { cb.checked = false; });
+        this.matchesContainer.querySelectorAll('.match-checkbox').forEach(cb => { (cb as HTMLInputElement).checked = false; });
         this.updatePreviews();
     }
 
@@ -553,10 +427,9 @@ class RegexFindReplaceView extends ItemView {
         this.updateHeader();
     }
 
-    // Rendering helpers
-    ensureFileContainer(file) {
+    ensureFileContainer(file: TFile) {
         const key = file.path;
-        if (this.fileContainers.has(key)) return this.fileContainers.get(key);
+        if (this.fileContainers.has(key)) return this.fileContainers.get(key)!;
         const fileContainer = this.matchesContainer.createDiv('file-matches');
         const fileHeader = fileContainer.createDiv('file-header');
         fileHeader.createEl('span', { text: key, cls: 'file-path' });
@@ -564,7 +437,7 @@ class RegexFindReplaceView extends ItemView {
         return fileContainer;
     }
 
-    renderMatchesSlice(start, end) {
+    renderMatchesSlice(start: number, end: number) {
         for (let i = start; i < end; i++) {
             const match = this.matches[i];
             const fileContainer = this.ensureFileContainer(match.file);
@@ -589,7 +462,7 @@ class RegexFindReplaceView extends ItemView {
             this.renderMatchPreview(previewEl, match);
 
             matchEl.onclick = (e) => {
-                if (e.target.type !== 'checkbox') this.navigateToMatch(match);
+                if ((e.target as HTMLInputElement).type !== 'checkbox') this.navigateToMatch(match);
             };
         }
     }
@@ -604,7 +477,6 @@ class RegexFindReplaceView extends ItemView {
         if (!this.initialBatchRendered && this.matches.length >= PAGE_SIZE) {
             this.initialBatchRendered = true;
             this.renderLimit = PAGE_SIZE;
-            // Render first page without blocking the ongoing search
             requestAnimationFrame(() => {
                 this.renderMatches({ append: false });
                 this.updateHeader();
@@ -627,8 +499,7 @@ class RegexFindReplaceView extends ItemView {
         this.updateLoadMoreVisibility();
     }
 
-    // Match preview renderer
-    renderMatchPreview(container, match) {
+    renderMatchPreview(container: HTMLElement, match: any) {
         const line = match.line;
         const { start, end, text } = match.match;
 
@@ -655,15 +526,10 @@ class RegexFindReplaceView extends ItemView {
         if (contextEnd < line.length) container.createEl('span', { text: '...', cls: 'ellipsis' });
     }
 
-    getReplacementText(matchText) {
-        const replaceText = this.replaceInput.value ?? '';
-        if (this.plugin.settings.useRegEx) {
+    getReplacementText(matchText: string, searchRegex: RegExp | null = this.currentSearchRegex, replaceText: string = this.replaceInput.value ?? '') {
+        if (this.plugin.settings.useRegEx && searchRegex) {
             try {
-                const regex = buildRegex(this.findInput.value, {
-                    caseInsensitive: this.plugin.settings.caseInsensitive,
-                    wholeWord: this.plugin.settings.wholeWord
-                });
-                return matchText.replace(regex, replaceText);
+                return matchText.replace(searchRegex, replaceText);
             } catch (_) {
                 return matchText;
             }
@@ -675,16 +541,16 @@ class RegexFindReplaceView extends ItemView {
         for (const match of this.matches) this.updatePreview(match);
     }
 
-    updatePreview(match) {
+    updatePreview(match: any) {
         const matchEl = this.matchesContainer.querySelector(`[data-match-id="${match.id}"]`);
         if (!matchEl) return;
         const previewEl = matchEl.querySelector('.match-preview');
         if (!previewEl) return;
         previewEl.empty();
-        this.renderMatchPreview(previewEl, match);
+        this.renderMatchPreview(previewEl as HTMLElement, match);
     }
 
-    async navigateToMatch(match) {
+    async navigateToMatch(match: any) {
         const leaf = this.app.workspace.getLeaf(false);
         await leaf.openFile(match.file);
 
@@ -693,10 +559,8 @@ class RegexFindReplaceView extends ItemView {
             const editor = view.editor;
             const from = { line: match.lineNum, ch: match.match.start };
             const to = { line: match.lineNum, ch: match.match.end };
-            editor.setCursor(from);
+            editor.setSelection(from, to);
             editor.scrollIntoView({ from, to }, true);
-            const mark = editor.markText(from, to, { className: 'regex-find-highlight-temp' });
-            setTimeout(() => mark.clear(), 2000);
         }
     }
 
@@ -710,132 +574,21 @@ class RegexFindReplaceView extends ItemView {
     async replaceSelected() {
         if (!this.plugin.settings.replaceEnabled || this.matches.length === 0) return;
         const selected = this.matches.filter(m => {
-            const checkbox = this.matchesContainer.querySelector(`[data-match-id="${m.id}"] .match-checkbox`);
+            const checkbox = this.matchesContainer.querySelector(`[data-match-id="${m.id}"] .match-checkbox`) as HTMLInputElement;
             return checkbox && checkbox.checked;
         });
         if (!selected.length) { new Notice('No matches selected'); return; }
         await this.performReplacements(selected);
     }
 
-    async performReplacements(matches) {
-        const fileChanges = new Map();
-        const changes = [];
-        let totalReplacements = 0;
-
-        // Group by file
-        for (const m of matches) {
-            if (!fileChanges.has(m.file)) fileChanges.set(m.file, []);
-            fileChanges.get(m.file).push(m);
-        }
-
-        for (const [file, fileMatches] of fileChanges) {
-            try {
-                const original = await this.app.vault.read(file);
-                const lines = original.split('\n');
-
-                // Sort reverse to preserve indices
-                fileMatches.sort((a, b) => (a.lineNum !== b.lineNum) ? b.lineNum - a.lineNum : b.match.start - a.match.start);
-
-                for (const m of fileMatches) {
-                    const line = lines[m.lineNum];
-                    const replacement = this.getReplacementText(m.match.text);
-                    lines[m.lineNum] = line.slice(0, m.match.start) + replacement + line.slice(m.match.end);
-                    totalReplacements++;
-                }
-
-                const modified = lines.join('\n');
-                if (modified !== original) {
-                    await this.app.vault.modify(file, modified);
-                    changes.push({ path: file.path, before: original, after: modified });
-                }
-            } catch (e) {
-                logger('Error processing file: ' + file.path + ' -> ' + e.message, 1);
-            }
-        }
-
-        if (totalReplacements > 0 && changes.length > 0) {
-            const op = {
-                timestamp: Date.now(),
-                scope: this.plugin.settings.allFiles ? 'vault' : 'document',
-                count: totalReplacements,
-                find: this.findInput.value,
-                replace: this.replaceInput.value,
-                useRegEx: this.plugin.settings.useRegEx,
-                regexFlags: 'gm' + (this.plugin.settings.caseInsensitive ? 'i' : ''),
-                changes
-            };
-            this.plugin.history.push(op);
-            if (this.plugin.history.length > MAX_HISTORY) this.plugin.history.shift();
-        }
-
-        new Notice(`Replaced ${totalReplacements} match${totalReplacements !== 1 ? 'es' : ''} in ${changes.length} file${changes.length !== 1 ? 's' : ''}`);
+    async performReplacements(matches: any[]) {
+        const replaceText = this.replaceInput.value ?? '';
+        const findText = this.findInput.value ?? '';
+        await this.plugin.performReplacements(matches, this.currentSearchRegex, replaceText, findText);
         await this.performSearch();
     }
 
-    onClose() { /* noop */ }
-}
-
-/* ===========================
-   Settings
-   =========================== */
-class RegexFindReplaceSettingTab extends PluginSettingTab {
-    constructor(app, plugin) {
-        super(app, plugin);
-        this.plugin = plugin;
-    }
-
-    display() {
-        const { containerEl } = this;
-        containerEl.empty();
-
-        containerEl.createEl('h4', { text: 'Regular Expression Settings' });
-
-        new Setting(containerEl)
-            .setName('Case Insensitive')
-            .setDesc('When using regular expressions, apply the \'i\' modifier for case insensitive search')
-            .addToggle(t => t
-                .setValue(this.plugin.settings.caseInsensitive)
-                .onChange(async (value) => {
-                    logger('Settings update: caseInsensitive: ' + value);
-                    this.plugin.settings.caseInsensitive = value;
-                    await this.plugin.saveSettings();
-                }));
-
-        containerEl.createEl('h4', { text: 'General Settings' });
-
-        new Setting(containerEl)
-            .setName('Process \\n as line break')
-            .setDesc('When \'\\n\' is used in the replace field, a \'line break\' will be inserted accordingly')
-            .addToggle(t => t
-                .setValue(this.plugin.settings.processLineBreak)
-                .onChange(async (value) => {
-                    logger('Settings update: processLineBreak: ' + value);
-                    this.plugin.settings.processLineBreak = value;
-                    await this.plugin.saveSettings();
-                }));
-
-        new Setting(containerEl)
-            .setName('Process \\t as tab')
-            .setDesc('When \'\\t\' is used in the replace field, a \'tab\' will be inserted accordingly')
-            .addToggle(t => t
-                .setValue(this.plugin.settings.processTab)
-                .onChange(async (value) => {
-                    logger('Settings update: processTab: ' + value);
-                    this.plugin.settings.processTab = value;
-                    await this.plugin.saveSettings();
-                }));
-
-        new Setting(containerEl)
-            .setName('Prefill Find Field')
-            .setDesc('Copy the currently selected text (if any) into the \'Find\' text field')
-            .addToggle(t => t
-                .setValue(this.plugin.settings.prefillFind)
-                .onChange(async (value) => {
-                    logger('Settings update: prefillFind: ' + value);
-                    this.plugin.settings.prefillFind = value;
-                    await this.plugin.saveSettings();
-                }));
+    onClose(): Promise<void> {
+        return Promise.resolve();
     }
 }
-
-module.exports = RegexFindReplacePlugin;
