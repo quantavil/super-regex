@@ -1,8 +1,8 @@
 /* Main container */
-.regex-find-replace-view { padding: 10px; height: 100%; overflow-y: auto; }
+.regex-find-replace-view { padding: 10px; height: 100%; overflow-y: auto; display: flex; flex-direction: column; }
 
 /* Search section */
-.regex-find-replace-view .search-section { border-bottom: 1px solid var(--background-modifier-border); padding-bottom: 15px; margin-bottom: 15px; }
+.regex-find-replace-view .search-section { border-bottom: 1px solid var(--background-modifier-border); padding-bottom: 15px; margin-bottom: 15px; flex-shrink: 0; }
 
 /* Inputs */
 .regex-find-replace-view .input-container { margin-bottom: 10px; }
@@ -37,12 +37,13 @@
 .regex-find-replace-view .button-container button.mod-muted::before {
   content: ''; position: absolute; left: -6px; top: 50%; transform: translateY(-50%); width: 1px; height: 14px; background: var(--background-modifier-border);
 }
-.regex-find-replace-view .button-container button.mod-muted:not(.disabled):hover { color: #dc3545; background: var(--background-modifier-hover); }
+.regex-find-replace-view .button-container button.mod-muted:not(.disabled):hover { color: var(--color-red); background: var(--background-modifier-hover); }
 .regex-find-replace-view .button-container button.disabled { opacity: 0.3; cursor: not-allowed; }
 
 /* Results */
-.regex-find-replace-view .results-section { height: calc(100% - 280px); overflow-y: auto; }
-.regex-find-replace-view .results-header { font-weight: 500; margin-bottom: 10px; padding: 5px 0; font-size: 0.9em; }
+.regex-find-replace-view .results-section { flex: 1; overflow-y: auto; }
+.regex-find-replace-view .results-header { font-weight: 500; margin-bottom: 10px; padding: 5px 0; font-size: 0.9em; display: flex; align-items: center; gap: 8px; }
+.regex-find-replace-view .results-header-load-more { margin-left: 8px; }
 .regex-find-replace-view .file-matches { margin-bottom: 20px; }
 .regex-find-replace-view .file-header { background: var(--background-secondary); padding: 5px 10px; margin-bottom: 5px; border-radius: 4px; font-weight: 500; font-size: 0.85em; }
 .regex-find-replace-view .match-item { display: flex; align-items: flex-start; padding: 5px 10px; cursor: pointer; border-radius: 4px; }
@@ -54,17 +55,16 @@
 
 /* Highlighting */
 .regex-find-replace-view .match-highlight { background: var(--text-highlight-bg); color: var(--text-highlight-fg); padding: 0 2px; border-radius: 2px; }
-.regex-find-replace-view .match-highlight.has-replacement { text-decoration: line-through; opacity: 0.7; }
-.regex-find-replace-view .replacement-preview { display: inline-block; margin-left: 5px; }
-.regex-find-replace-view .replacement-preview .arrow { color: var(--text-muted); margin-right: 5px; }
-.regex-find-replace-view .replacement-preview .replacement-text {
-  background: var(--interactive-success); color: var(--text-on-accent); padding: 0 4px; border-radius: 2px;
+.regex-find-replace-view .match-highlight.has-replacement { text-decoration: line-through; opacity: 0.5; }
+.regex-find-replace-view .replacement-inline {
+  background: var(--interactive-success); color: var(--text-on-accent); padding: 0 3px; border-radius: 2px; font-weight: 500;
 }
 .regex-find-replace-view .context { color: var(--text-muted); }
 .regex-find-replace-view .ellipsis { color: var(--text-faint); margin: 0 2px; }
 
-/* Editor highlight */
-.cm-s-obsidian .regex-find-highlight-temp { background-color: var(--text-highlight-bg); color: var(--text-highlight-fg); animation: pulse 0.5s ease-in-out 3; }
+/* Editor highlight — works with both CM5 (.cm-s-obsidian) and CM6 (.cm-editor) */
+.cm-s-obsidian .regex-find-highlight-temp,
+.cm-editor .regex-find-highlight-temp { background-color: var(--text-highlight-bg); color: var(--text-highlight-fg); animation: pulse 0.5s ease-in-out 3; }
 @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
 
 /* Responsive */
@@ -75,7 +75,7 @@
 
 /* Dark tweaks */
 .theme-dark .regex-find-replace-view .match-highlight { background: rgba(255, 220, 100, 0.3); color: inherit; }
-.theme-dark .regex-find-replace-view .replacement-text { background: rgba(100, 255, 100, 0.3); color: inherit; }
+.theme-dark .regex-find-replace-view .replacement-inline { background: rgba(100, 255, 100, 0.3); color: inherit; }
 
 /* Scrollbars */
 .regex-find-replace-view .results-section::-webkit-scrollbar,
@@ -144,3 +144,46 @@
 }
 .regex-find-replace-view .copy-not-found-btn:hover { background: var(--interactive-accent-hover); transform: translateY(-1px); }
 .regex-find-replace-view .copy-not-found-btn:active { transform: translateY(0); }
+
+/* Collapsible and Header UI */
+.regex-find-replace-view .file-header { cursor: pointer; user-select: none; }
+.regex-find-replace-view .file-matches.collapsed .match-item { display: none; }
+.regex-find-replace-view .file-matches.collapsed .collapse-icon { transform: rotate(-90deg); display: inline-block; }
+.regex-find-replace-view .collapse-icon { font-size: 0.8em; margin-right: 5px; transition: transform 0.2s; display: inline-block; }
+
+/* History UI */
+.regex-find-replace-view .regex-history-button { background: none; border: none; box-shadow: none; cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center; opacity: 0.7; }
+.regex-find-replace-view .regex-history-button:hover { opacity: 1; }
+
+/* Export button */
+.regex-find-replace-view .results-header-export {
+  background: none; border: none; box-shadow: none; cursor: pointer; padding: 2px 4px;
+  font-size: 14px; opacity: 0.6; line-height: 1;
+}
+.regex-find-replace-view .results-header-export:hover { opacity: 1; }
+
+/* Folder scope */
+.regex-find-replace-view .folder-scope {
+  cursor: pointer; padding: 2px 8px; border-radius: 4px; font-size: 0.8em;
+  background: var(--background-secondary); border: 1px solid var(--background-modifier-border);
+  transition: background 0.15s;
+}
+.regex-find-replace-view .folder-scope:hover { background: var(--background-modifier-hover); }
+.regex-find-replace-view .folder-scope-label { color: var(--text-muted); }
+
+/* Undo banner (F9) */
+.regex-find-replace-view .undo-banner {
+  display: flex; align-items: center; gap: 8px; padding: 8px 12px; margin-top: 10px;
+  background: var(--background-secondary); border: 1px solid var(--background-modifier-border);
+  border-radius: 6px; font-size: 0.85em; animation: slideIn 0.2s ease-out;
+}
+.regex-find-replace-view .undo-banner-text { flex: 1; color: var(--text-normal); }
+.regex-find-replace-view .undo-banner-btn {
+  padding: 3px 10px; border-radius: 4px; border: 1px solid var(--interactive-accent);
+  background: transparent; color: var(--interactive-accent); cursor: pointer;
+  font-size: 0.85em; font-weight: 600; transition: all 0.15s;
+}
+.regex-find-replace-view .undo-banner-btn:hover {
+  background: var(--interactive-accent); color: var(--text-on-accent);
+}
+@keyframes slideIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }

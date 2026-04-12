@@ -36,3 +36,10 @@ export const getReplacementText = (useRegEx: boolean, matchText: string, searchR
     }
     return replaceText;
 };
+
+export function applyEscapes(text: string, settings: { processLineBreak: boolean, processTab: boolean }): string {
+    let result = text;
+    if (settings.processLineBreak) result = result.replace(/\\n/g, '\n');
+    if (settings.processTab) result = result.replace(/\\t/g, '\t');
+    return result;
+}

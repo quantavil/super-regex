@@ -34,6 +34,10 @@ build();
 
 if (isWatch) {
   console.log("Watching for changes...");
-  const watcher = Bun.spawn(["bun", "run", "eslint", "--watch"]); // fallback to generic or we can use node:fs
-  // Instead of complex watch, we use node fs.watch or similar if requested.
+  import("fs").then(fs => {
+    fs.watch(resolve("src"), { recursive: true }, async () => {
+      console.log("Change detected, rebuilding...");
+      await build();
+    });
+  });
 }

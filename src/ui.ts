@@ -16,7 +16,10 @@ export function createFlagButton(container: HTMLElement, label: string, svgConte
         cls: 'regex-flag-button' + (initialActive ? ' active' : ''),
         attr: { 'aria-label': label }
     });
-    button.innerHTML = svgContent;
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(svgContent, "image/svg+xml");
+    const svg = doc.querySelector('svg');
+    if (svg) button.appendChild(svg);
     button.onclick = () => {
         const nowActive = !button.hasClass('active');
         button.toggleClass('active', nowActive);
@@ -37,25 +40,30 @@ export function renderMatchPreview(container: HTMLElement, match: FileMatch, opt
     const line = match.line;
     const { start, end, text } = match.match;
 
-    const contextStart = Math.max(0, start - 30);
-    const contextEnd = Math.min(line.length, end + 30);
+    const contextStart = Math.max(0, start - 40);
+    const contextEnd = Math.min(line.length, end + 40);
 
-    if (contextStart > 0) container.createEl('span', { text: '...', cls: 'ellipsis' });
+    const showReplacement = options.replaceEnabled && options.pendingReplacement;
+    const replacement = showReplacement
+        ? getReplacementText(options.useRegEx, text, options.searchRegex, options.replaceText)
+        : null;
+    const hasChange = replacement !== null && replacement !== text;
+
+    if (contextStart > 0) container.createEl('span', { text: '…', cls: 'ellipsis' });
 
     container.createEl('span', { text: line.substring(contextStart, start), cls: 'context' });
 
-    const highlightEl = container.createEl('span', { text, cls: 'match-highlight' });
+    // Original match text — strikethrough if being replaced
+    container.createEl('span', {
+        text,
+        cls: hasChange ? 'match-highlight has-replacement' : 'match-highlight'
+    });
 
-    if (options.replaceEnabled && options.pendingReplacement) {
-        const replacement = getReplacementText(options.useRegEx, text, options.searchRegex, options.replaceText);
-        if (replacement !== text) {
-            highlightEl.addClass('has-replacement');
-            const replacementEl = container.createDiv('replacement-preview');
-            replacementEl.createEl('span', { text: '→', cls: 'arrow' });
-            replacementEl.createEl('span', { text: replacement, cls: 'replacement-text' });
-        }
+    // Inline replacement right after the struck-through match
+    if (hasChange) {
+        container.createEl('span', { text: replacement!, cls: 'replacement-inline' });
     }
 
     container.createEl('span', { text: line.substring(end, contextEnd), cls: 'context' });
-    if (contextEnd < line.length) container.createEl('span', { text: '...', cls: 'ellipsis' });
+    if (contextEnd < line.length) container.createEl('span', { text: '…', cls: 'ellipsis' });
 }

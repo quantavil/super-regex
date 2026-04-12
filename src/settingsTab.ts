@@ -1,6 +1,5 @@
 import { App, PluginSettingTab, Setting } from 'obsidian';
 import type RegexFindReplacePlugin from './main';
-import { logger } from './utils';
 
 export class RegexFindReplaceSettingTab extends PluginSettingTab {
     plugin: RegexFindReplacePlugin;
@@ -22,7 +21,6 @@ export class RegexFindReplaceSettingTab extends PluginSettingTab {
             .addToggle(t => t
                 .setValue(this.plugin.settings.caseInsensitive)
                 .onChange(async (value) => {
-                    logger('Settings update: caseInsensitive: ' + value);
                     this.plugin.settings.caseInsensitive = value;
                     await this.plugin.saveSettings();
                 }));
@@ -35,7 +33,6 @@ export class RegexFindReplaceSettingTab extends PluginSettingTab {
             .addToggle(t => t
                 .setValue(this.plugin.settings.processLineBreak)
                 .onChange(async (value) => {
-                    logger('Settings update: processLineBreak: ' + value);
                     this.plugin.settings.processLineBreak = value;
                     await this.plugin.saveSettings();
                 }));
@@ -46,7 +43,6 @@ export class RegexFindReplaceSettingTab extends PluginSettingTab {
             .addToggle(t => t
                 .setValue(this.plugin.settings.processTab)
                 .onChange(async (value) => {
-                    logger('Settings update: processTab: ' + value);
                     this.plugin.settings.processTab = value;
                     await this.plugin.saveSettings();
                 }));
@@ -57,7 +53,6 @@ export class RegexFindReplaceSettingTab extends PluginSettingTab {
             .addToggle(t => t
                 .setValue(this.plugin.settings.prefillFind)
                 .onChange(async (value) => {
-                    logger('Settings update: prefillFind: ' + value);
                     this.plugin.settings.prefillFind = value;
                     await this.plugin.saveSettings();
                 }));

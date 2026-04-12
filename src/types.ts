@@ -11,6 +11,8 @@ export interface RegexFindReplaceSettings {
     allFiles: boolean;
     replaceEnabled: boolean;
     wholeWord: boolean;
+    searchHistory: string[];
+    folderScope: string;
 }
 
 export const DEFAULT_SETTINGS: RegexFindReplaceSettings = {
@@ -23,7 +25,9 @@ export const DEFAULT_SETTINGS: RegexFindReplaceSettings = {
     prefillFind: false,
     allFiles: false,
     replaceEnabled: true,
-    wholeWord: false
+    wholeWord: false,
+    searchHistory: [],
+    folderScope: ''
 };
 
 export const MAX_MATCHES = 10000;

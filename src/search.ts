@@ -30,7 +30,7 @@ export const findAllMatchesInLine = (line: string, config: SearchConfig, foundWo
         
         let index = 0;
         while ((index = line.indexOf(query, index)) !== -1) {
-            lineMatches.push({ start: index, end: index + query.length, text: line.substring(index, index + query.length) });
+            lineMatches.push({ start: index, end: index + query.length, text: query });
             index += query.length;
         }
     }

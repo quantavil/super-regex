@@ -2,7 +2,7 @@ import { Plugin, Notice, TFile, MarkdownView } from 'obsidian';
 import { RegexFindReplaceSettingTab } from './settingsTab';
 import { RegexFindReplaceView } from './view';
 import { DEFAULT_SETTINGS, RegexFindReplaceSettings, VIEW_TYPE_REGEX_FIND_REPLACE, MatchOperation, MAX_HISTORY, FileMatch, FileChange } from './types';
-import { logger, getReplacementText, LogLevel } from './utils';
+import { logger, getReplacementText, applyEscapes, LogLevel } from './utils';
 
 export default class RegexFindReplacePlugin extends Plugin {
     settings!: RegexFindReplaceSettings;
@@ -10,7 +10,6 @@ export default class RegexFindReplacePlugin extends Plugin {
 
     async onload() {
         logger('Loading Plugin...', LogLevel.INFO);
-        this.history = [];
         await this.loadSettings();
 
         this.registerView(VIEW_TYPE_REGEX_FIND_REPLACE, (leaf) => new RegexFindReplaceView(leaf, this));
@@ -33,12 +32,15 @@ export default class RegexFindReplacePlugin extends Plugin {
 
     onunload() {
         logger('Bye!', LogLevel.INFO);
-        this.history = [];
         this.app.workspace.detachLeavesOfType(VIEW_TYPE_REGEX_FIND_REPLACE);
     }
 
     async activateView() {
-        this.app.workspace.detachLeavesOfType(VIEW_TYPE_REGEX_FIND_REPLACE);
+        const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_REGEX_FIND_REPLACE);
+        if (leaves.length > 0) {
+            this.app.workspace.revealLeaf(leaves[0]);
+            return;
+        }
         const leaf = this.app.workspace.getRightLeaf(false);
         if (leaf) {
             await leaf.setViewState({ type: VIEW_TYPE_REGEX_FIND_REPLACE, active: true });
@@ -115,8 +117,7 @@ export default class RegexFindReplacePlugin extends Plugin {
                     editor.transaction({
                         changes: fileMatches.map(m => {
                             let replacement = getReplacementText(this.settings.useRegEx, m.match.text, searchRegex, replaceText);
-                            if (this.settings.processLineBreak) replacement = replacement.replace(/\\n/g, '\n');
-                            if (this.settings.processTab) replacement = replacement.replace(/\\t/g, '\t');
+                            replacement = applyEscapes(replacement, this.settings);
                             
                             return {
                                 from: { line: m.lineNum, ch: m.match.start },
@@ -140,12 +141,7 @@ export default class RegexFindReplacePlugin extends Plugin {
                         const line = lines[m.lineNum];
                         let replacement = getReplacementText(this.settings.useRegEx, m.match.text, searchRegex, replaceText);
                         
-                        if (this.settings.processLineBreak) {
-                            replacement = replacement.replace(/\\n/g, '\n');
-                        }
-                        if (this.settings.processTab) {
-                            replacement = replacement.replace(/\\t/g, '\t');
-                        }
+                        replacement = applyEscapes(replacement, this.settings);
 
                         lines[m.lineNum] = line.slice(0, m.match.start) + replacement + line.slice(m.match.end);
                         totalReplacements++;
