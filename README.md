@@ -48,7 +48,7 @@ Quantavil
 
 ## Version
 
-1.1.0
+1.2.0
 ## License
 
 This project is licensed under the GNU General Public License v3.0 (GPL-3.0) - see the [LICENSE](LICENSE) file for details.
