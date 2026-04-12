@@ -94,6 +94,9 @@ export class RegexFindReplaceView extends ItemView {
         });
         this.findInput.value = this.plugin.settings.findText;
 
+        const aiBtn = findInputWrapper.createEl('button', { text: '✨', title: 'Convert natural language to RegEx', cls: 'ai-generate-btn-inline' });
+        aiBtn.onclick = () => this.generateAiRegex();
+
         this.regexFlagsContainer = findInputWrapper.createDiv('regex-flags-container');
         this.createRegexFlagButtons();
 
@@ -144,10 +147,6 @@ export class RegexFindReplaceView extends ItemView {
         textPill.onclick = () => setMode('text');
         regexPill.onclick = () => setMode('regex');
         updatePills();
-
-        // --- AI Generate Button ---
-        const aiBtn = optionsContainer.createEl('button', { text: '✨ Convert to RegEx', cls: 'ai-generate-btn' });
-        aiBtn.onclick = () => this.generateAiRegex();
 
         createToggle(optionsContainer, 'All Files', this.plugin.settings.allFiles, (value) => {
             this.plugin.settings.allFiles = value;
