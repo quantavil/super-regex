@@ -2,7 +2,7 @@ import { Plugin, Notice, TFile, MarkdownView } from 'obsidian';
 import { RegexFindReplaceSettingTab } from './settingsTab';
 import { RegexFindReplaceView } from './view';
 import { DEFAULT_SETTINGS, RegexFindReplaceSettings, VIEW_TYPE_REGEX_FIND_REPLACE, MatchOperation, MAX_HISTORY, FileMatch, FileChange } from './types';
-import { logger, getReplacementText, LogLevel } from './utils';
+import { logger, getReplacementText, buildFlags, LogLevel } from './utils';
 
 export default class RegexFindReplacePlugin extends Plugin {
     settings!: RegexFindReplaceSettings;
@@ -44,7 +44,7 @@ export default class RegexFindReplacePlugin extends Plugin {
         const leaf = this.app.workspace.getRightLeaf(false);
         if (leaf) {
             await leaf.setViewState({ type: VIEW_TYPE_REGEX_FIND_REPLACE, active: true });
-            this.app.workspace.revealLeaf(this.app.workspace.getLeavesOfType(VIEW_TYPE_REGEX_FIND_REPLACE)[0]);
+            this.app.workspace.revealLeaf(leaf);
         }
     }
 
@@ -92,7 +92,7 @@ export default class RegexFindReplacePlugin extends Plugin {
         return this.history.reduce((acc, op) => acc + op.changes.reduce((sum, ch) => sum + ch.before.length + ch.after.length, 0), 0);
     }
 
-    async performReplacements(matches: FileMatch[], searchRegex: RegExp | null, replaceText: string, findText: string) {
+    async performReplacements(matches: FileMatch[], searchRegex: RegExp | null, replaceText: string) {
         const fileChanges = new Map<TFile, FileMatch[]>();
         const changes: FileChange[] = [];
         let totalReplacements = 0;
@@ -109,20 +109,23 @@ export default class RegexFindReplacePlugin extends Plugin {
         for (const [file, fileMatches] of fileChanges.entries()) {
             try {
                 fileMatches.sort((a, b) => (a.lineNum !== b.lineNum) ? b.lineNum - a.lineNum : b.match.start - a.match.start);
+                
+                const isRegex = this.settings.searchMode !== 'text';
+                const ops = fileMatches.map(m => ({
+                    m,
+                    replacement: getReplacementText(isRegex, m.match.text, searchRegex, replaceText)
+                }));
 
                 if (file === activeFile && editor) {
                     // C1: Use Editor API for active file
                     const original = await this.app.vault.read(file);
                     
                     editor.transaction({
-                        changes: fileMatches.map(m => {
-                            let replacement = getReplacementText(this.settings.searchMode !== 'text', m.match.text, searchRegex, replaceText);
-                            return {
-                                from: { line: m.lineNum, ch: m.match.start },
-                                to: { line: m.lineNum, ch: m.match.end },
-                                text: replacement
-                            };
-                        })
+                        changes: ops.map(({ m, replacement }) => ({
+                            from: { line: m.lineNum, ch: m.match.start },
+                            to: { line: m.lineNum, ch: m.match.end },
+                            text: replacement
+                        }))
                     });
                     
                     const modified = editor.getValue();
@@ -135,10 +138,8 @@ export default class RegexFindReplacePlugin extends Plugin {
                     const original = await this.app.vault.read(file);
                     const lines = original.split('\n');
 
-                    for (const m of fileMatches) {
+                    for (const { m, replacement } of ops) {
                         const line = lines[m.lineNum];
-                        let replacement = getReplacementText(this.settings.searchMode !== 'text', m.match.text, searchRegex, replaceText);
-                        
                         lines[m.lineNum] = line.slice(0, m.match.start) + replacement + line.slice(m.match.end);
                         totalReplacements++;
                     }
@@ -159,10 +160,10 @@ export default class RegexFindReplacePlugin extends Plugin {
                 timestamp: Date.now(),
                 scope: this.settings.allFiles ? 'vault' : 'document',
                 count: totalReplacements,
-                find: findText,
+                find: this.settings.findText,
                 replace: replaceText,
                 searchMode: this.settings.searchMode,
-                regexFlags: 'gm' + (this.settings.caseInsensitive ? 'i' : ''),
+                regexFlags: buildFlags(this.settings.caseInsensitive),
                 changes
             };
             this.history.push(op);

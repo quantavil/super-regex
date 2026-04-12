@@ -3,7 +3,7 @@
     "target": "ES6",
     "module": "ESNext",
     "moduleResolution": "node",
-    "lib": ["DOM", "ES2015"],
+    "lib": ["DOM", "ES2020"],
     "strict": true,
     "allowJs": true,
     "outDir": "./dist",

@@ -35,9 +35,13 @@ build();
 if (isWatch) {
   console.log("Watching for changes...");
   import("fs").then(fs => {
+    let buildTimeout: any = null;
     fs.watch(resolve("src"), { recursive: true }, async () => {
-      console.log("Change detected, rebuilding...");
-      await build();
+      if (buildTimeout) clearTimeout(buildTimeout);
+      buildTimeout = setTimeout(async () => {
+        console.log("Change detected, rebuilding...");
+        await build();
+      }, 100);
     });
   });
 }

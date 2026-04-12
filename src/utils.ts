@@ -8,7 +8,10 @@ export enum LogLevel {
 export const logThreshold = LogLevel.INFO;
 
 export const logger = (msg: string, lvl: LogLevel = LogLevel.DEBUG) => { 
-    if (lvl >= logThreshold) console.log('RegexFiRe:', msg); 
+    if (lvl >= logThreshold) {
+        if (lvl >= LogLevel.ERROR) console.error('RegexFiRe:', msg);
+        else console.log('RegexFiRe:', msg);
+    }
 };
 
 export const debounce = <T extends (...args: any[]) => void>(fn: T, delay: number = 300) => {
@@ -19,8 +22,10 @@ export const debounce = <T extends (...args: any[]) => void>(fn: T, delay: numbe
   };
 };
 
+export const buildFlags = (caseInsensitive?: boolean): string => 'gm' + (caseInsensitive ? 'i' : '');
+
 export const buildRegex = (pattern: string, options: { caseInsensitive?: boolean, wholeWord?: boolean } = {}) => {
-  const flags = 'gm' + (options.caseInsensitive ? 'i' : '');
+  const flags = buildFlags(options.caseInsensitive);
   let patt = pattern;
   if (options.wholeWord) patt = `\\b(?:${patt})\\b`;
   return new RegExp(patt, flags);
@@ -36,3 +41,7 @@ export const getReplacementText = (isRegex: boolean, matchText: string, searchRe
     }
     return replaceText;
 };
+
+export function escapeRegex(string: string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}

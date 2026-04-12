@@ -88,9 +88,7 @@
 .regex-find-replace-view .matches-container::-webkit-scrollbar-thumb:hover { background: var(--background-modifier-border-hover); }
 
 /* States */
-.regex-find-replace-view .loading { display: flex; justify-content: center; align-items: center; height: 100px; color: var(--text-muted); }
 .regex-find-replace-view .empty-state { text-align: center; color: var(--text-muted); padding: 40px 20px; }
-.regex-find-replace-view .error-message { color: var(--text-error); padding: 10px; background: var(--background-modifier-error); border-radius: 4px; margin: 10px 0; }
 .regex-find-replace-view .file-path { font-size: 0.85em; opacity: 0.8; }
 .regex-find-replace-view .match-count { background: var(--interactive-accent); color: var(--text-on-accent); padding: 2px 8px; border-radius: 12px; font-size: 0.8em; margin-left: 10px; }
 
@@ -195,4 +193,8 @@
 .regex-find-replace-view .ai-generate-btn-inline:hover { background: var(--interactive-accent); }
 
 /* AI Verify Settings Button */
-.ai-verify-btn-container { margin-top: 15px; display: flex; align-items: center; }
+.ai-verify-btn-container { margin-top: 15px; display: flex; align-items: center; }
+.verify-status { margin-left: 10px; font-size: 0.9em; }
+.verify-checking { color: var(--text-muted); }
+.verify-ok { color: var(--text-success); }
+.verify-error { color: var(--text-error); }

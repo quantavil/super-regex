@@ -1,45 +1,48 @@
 # Project: super-regex
 
 ## Overview
-Obsidian plugin for finding and replacing text across specific files, folders, or the entire vault. Supports two search modes: plain Text and RegEx. Includes an AI feature (via Gemini API) that converts natural language into regex patterns. Uses a custom view pane with inline replace previews, prominent undo banners, export-to-clipboard, and pipe-based multi-term matching.
+Advanced Find & Replace plugin for Obsidian. Features vault/folder/file scoping, case-sensitivity, whole-word matching, and AI-powered natural language to RegEx conversion. Uses a modularized architecture (M-V-C/Renderer) for robust state management and rendering performance.
 
 ## Structure
 src/
-├── main.ts # Entry point. Defines the Plugin class, settings logic, undo functions, and replace mechanism.
-├── view.ts # ItemView implementation. Rich UI with previews, folder scoped picker, export, and pending/undo execution logic.
-├── settingsTab.ts # Configuration tab in Obsidian settings. (AI API configurations added here).
-├── ui.ts # Pure UI generic components and preview layout helpers (inline match rendering).
-├── search.ts # Isolated math logic for raw regex and search loops.
-├── ai.ts # AI Service connected via OpenAI API standard endpoints to generate regex strings from Natural Language.
-├── utils.ts # Helper functions (debounce, buildRegex, getReplacementText).
-└── types.ts # Type definitions, constants, and interface for settings/history. SearchMode ('text' | 'regex') replaces boolean regex toggles.
+├── main.ts # Entry point. Plugin lifecycle, command registry, settingsPersistence, and core vault/editor modification logic.
+├── view.ts # ItemView. UI shell orchestration and state container (matches, folders).
+├── controllers/
+│   ├── ActionHandler.ts # Handles logic for replacements, undo history management, and clipboard exports.
+│   └── SearchController.ts # Orchestrates match engine execution across vault files or active document.
+├── ui/
+│   └── MatchRenderer.ts # Handles DOM construction/cleanup for search results. Uses pagination for large datasets.
+├── ui.ts # Pure UI generic components (toggles, SVG icons) and inline match preview rendering.
+├── search.ts # Dedicated match engine for raw regexp and text mode (including pipe matching).
+├── ai.ts # API Service (OpenAI schema) to generate regex strings from Natural Language.
+├── utils.ts # Shared static helpers (debounce, buildRegex, buildFlags, escapeRegex).
+└── types.ts # Shared interfaces, constants, and SearchMode union.
+
 test/
-└── utils.test.ts # Tests
+├── setup.ts # Central Bun mock for 'obsidian' module. Preloaded via bunfig.toml.
+├── ai.test.ts # AI sanitization and error handling tests.
+├── main.test.ts # Plugin instance and history calculation tests.
+├── search.test.ts # Match engine (RegExp/Text) tests.
+└── utils.test.ts # Helper function unit tests.
 
 ## Conventions
-- Vanilla DOM creation using Obsidian's `HTMLElement` helper functions (`createDiv`, `createEl`).
-- Async search and replace across vault with background processing yields via `requestAnimationFrame` to avoid UI rendering blocks.
-- Plugin state (history, matches) managed directly within the plugin/view instances.
-- UI security strictly relies on `DOMParser` for SVG injection to adhere to Obsidian API policies. Avoid `innerHTML`.
-
-## Dependencies & Setup
-- `bun` is used for dev, build, and tests (`bun run build.ts`).
-- Standard Obsidian Plugin API. Target `minAppVersion`: `1.4.0`.
+- **Modularized Views:** Logic must be split between specialized controllers and renderers to prevent `view.ts` bloat.
+- **Vanilla DOM:** Obsidian's `HTMLElement` API (`createDiv`, `createEl`) preferred.
+- **Security:** SVG icons must be injected via `DOMParser` in `ui.ts` to strictly follow security policies.
+- **Mocking:** Unit tests use `test/setup.ts` via `bunfig.toml` preloading. Runtime configuration of mocks is done via `globalThis.mockRequestUrl`.
 
 ## Critical Information
-- Replacing text requires iterating `matches` in reverse (done in `performReplacements` by matching lineNum and start index descending) to prevent string index corruption on the replaced line.
-- Vault modifications are tracked in a custom `history` array to allow undo. Memory limits logic kept via `MAX_HISTORY = 10` or a 10MB char length check.
+- **Replacement Order:** Matches are sorted descending by line/index before replacement to ensure string index stability.
+- **Editor Integration:** Uses Obsidian's `editor.transaction()` for active file replacements to maintain standard undo/redo buffers.
+- **Memory Management:** `onClose()` in `view.ts` must clear all active timers (e.g. undo banner auto-hide).
 
 ## Insights
-- UX transitions favor "forgive and forget" (auto-hiding Undo banner) rather than "ask and block" (Replace All confirmation dialogs) to keep workflow fast.
-- The CSS selector `.cm-s-obsidian` is only for Obsidian CM5 legacy mode. Use `.cm-editor` for CodeMirror 6 active line targeting.
-- Settings `folderScope` restricts searches by prepending paths to `getMarkdownFiles()`.
-- Search limits are enforced globally per query via `MAX_MATCHES` constant.
-- AI feature acts as a generator tool rather than a standalone mode ("AI-as-a-tool"). It converts natural language to RegEx via a "Convert to RegEx ✨" button and injects the result into RegEx mode.
-- `SearchMode` type (`'text' | 'regex'`) replaces old boolean `useRegEx`. AI mode was removed as a type, simplifying state management and searches.
+- **AI-as-a-Tool:** AI is a generator tool for RegEx mode, not a standalone search mode.
+- **Standardized State:** `pendingReplacements` Map uses strictly `true` (selected) and `false` (deselected) values.
+- **Debounced Writes:** `saveSettings` uses a 500ms debounce to minimize disk I/O.
 
 ## Blunders
-- SVG injection directly to `innerHTML` violates Obsidian community API security standards. Use `DOMParser.parseFromString` instead. Fix implemented in `ui.ts`.
-- Memory leak in `setInterval`/`watch` on dev environment. Build watch natively handled by `fs.watch` now.
-- Obsidian `createEl('option', { value: 'x' })` does NOT set the `value` attribute. Must set `.value` on the returned element explicitly.
-- Removed `processLineBreak`, `processTab`, `prefillFind` settings. If old `data.json` has them, `Object.assign` in `loadSettings` ignores unknown keys harmlessly.
+- SVG injection directly to `innerHTML` violates security standards. Use `DOMParser.parseFromString` instead.
+- `createEl('option')` doesn't set `.value`. Must be set explicitly on the element instance.
+- Bun `mock.module` globally overrides resolution; redefining in individual files causes sibling failures. Define centrally and use `globalThis` for runtime changes.
+- Stale `fileContainers` DOM references caused invisible results on second search. Must be cleared on search reset.

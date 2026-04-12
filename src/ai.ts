@@ -1,6 +1,6 @@
 import { requestUrl } from 'obsidian';
 import { logger, LogLevel } from './utils';
-import { RegexFindReplaceSettings } from './types';
+import { RegexFindReplaceSettings, DEFAULT_SETTINGS } from './types';
 
 export async function generateRegex(prompt: string, settings: RegexFindReplaceSettings): Promise<string> {
     const { aiApiKey, aiModel, aiBaseUrl } = settings;
@@ -15,7 +15,7 @@ Your job is to output ONLY the raw, valid JavaScript Regular Expression that mat
 CRITICAL: DO NOT include any explanations, markdown formatting, slashes at the start/end, or flags. Output nothing but the raw regex string itself.`;
 
     const body = {
-        model: aiModel || 'gemma-4-31b-it',
+        model: aiModel || DEFAULT_SETTINGS.aiModel,
         messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: prompt }
@@ -25,10 +25,10 @@ CRITICAL: DO NOT include any explanations, markdown formatting, slashes at the s
     };
 
     try {
-        logger(`Generating regex via ${aiBaseUrl} for model ${body.model}`, LogLevel.DEBUG);
+        logger(`Generating regex via ${aiBaseUrl || DEFAULT_SETTINGS.aiBaseUrl} for model ${body.model}`, LogLevel.DEBUG);
         
         const response = await requestUrl({
-            url: aiBaseUrl || 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+            url: aiBaseUrl || DEFAULT_SETTINGS.aiBaseUrl,
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
