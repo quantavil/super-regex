@@ -1,9 +1,8 @@
-import { ItemView, WorkspaceLeaf, Notice, TFile, MarkdownView, Menu, FuzzySuggestModal, TFolder } from 'obsidian';
+import { ItemView, WorkspaceLeaf, Notice, TFile, MarkdownView, FuzzySuggestModal, TFolder } from 'obsidian';
 import type RegexFindReplacePlugin from './main';
 import { VIEW_TYPE_REGEX_FIND_REPLACE, PAGE_SIZE, MAX_MATCHES, FileMatch, SearchMode } from './types';
-import { debounce, buildRegex, getReplacementText, escapeRegex } from './utils';
-import { findAllMatchesInLine, SearchConfig } from './search';
-import { createToggle, createFlagButton, renderMatchPreview, autoResizeTextarea } from './ui';
+import { debounce, pluralize, initAutoResize } from './utils';
+import { createToggle, createFlagButton } from './ui';
 import { ActionHandler } from './controllers/ActionHandler';
 import { SearchController } from './controllers/SearchController';
 import { MatchRenderer } from './ui/MatchRenderer';
@@ -29,8 +28,7 @@ export class RegexFindReplaceView extends ItemView {
     pendingReplacements: Map<string, boolean>; // true = selected for replacement, false = deselected. Default for new matches: true.
     debouncedSearch: () => void;
     debouncedSaveSettings: () => void;
-    renderLimit: number;
-    renderedCount: number;
+        renderedCount: number;
     fileContainers: Map<string, HTMLElement>;
     matchCounts: Map<string, number>;
     initialBatchRendered: boolean;
@@ -39,6 +37,7 @@ export class RegexFindReplaceView extends ItemView {
     currentSearchText: string = '';
     findInput!: HTMLTextAreaElement;
     replaceInput!: HTMLTextAreaElement;
+    replaceRow!: HTMLElement;
     replaceAllBtn!: HTMLButtonElement;
     selectAllBtn!: HTMLButtonElement;
     deselectAllBtn!: HTMLButtonElement;
@@ -53,7 +52,7 @@ export class RegexFindReplaceView extends ItemView {
     wholeWordButton!: HTMLButtonElement;
     folderScopeEl!: HTMLElement;
     undoBanner!: HTMLElement;
-    undoBannerTimer: any = null;
+    undoBannerTimer: ReturnType<typeof setTimeout> | null = null;
     updatePillsUI?: () => void;
 
     actionHandler: ActionHandler;
@@ -65,13 +64,12 @@ export class RegexFindReplaceView extends ItemView {
         this.plugin = plugin;
         this.matches = [];
         this.pendingReplacements = new Map();
-        this.debouncedSearch = debounce(() => this.performSearch(), 300);
+        this.debouncedSearch = debounce(() => this.searchController.performSearch(), 300);
         this.debouncedSaveSettings = debounce(() => this.plugin.saveSettings(), 500);
         this.actionHandler = new ActionHandler(this);
         this.searchController = new SearchController(this);
         this.matchRenderer = new MatchRenderer(this);
 
-        this.renderLimit = PAGE_SIZE;
         this.renderedCount = 0;
         this.fileContainers = new Map();
         this.matchCounts = new Map();
@@ -120,11 +118,11 @@ export class RegexFindReplaceView extends ItemView {
         this.regexFlagsContainer = findInputWrapper.createDiv('regex-flags-container');
         this.createRegexFlagButtons();
 
-        this.findInput.addEventListener('input', () => autoResizeTextarea(this.findInput));
-        setTimeout(() => autoResizeTextarea(this.findInput), 0);
+        initAutoResize(this.findInput);
 
         // --- Replace row ---
         const replaceContainer = searchSection.createDiv('input-container');
+        this.replaceRow = replaceContainer;
         replaceContainer.createEl('label', { text: 'Replace:' });
 
         const replaceInputWrapper = replaceContainer.createDiv('find-input-wrapper');
@@ -132,8 +130,7 @@ export class RegexFindReplaceView extends ItemView {
             placeholder: 'Replace with…'
         });
         this.replaceInput.value = this.plugin.settings.replaceText;
-        this.replaceInput.addEventListener('input', () => autoResizeTextarea(this.replaceInput));
-        setTimeout(() => autoResizeTextarea(this.replaceInput), 0);
+        initAutoResize(this.replaceInput);
 
         // --- Options row ---
         const optionsContainer = searchSection.createDiv('options-container');
@@ -163,7 +160,7 @@ export class RegexFindReplaceView extends ItemView {
             this.plugin.saveSettings();
             updatePills();
             this.updateRegexFlagsVisibility();
-            this.performSearch();
+            this.searchController.performSearch();
         };
 
         textPill.onclick = () => setMode('text');
@@ -174,7 +171,7 @@ export class RegexFindReplaceView extends ItemView {
             this.plugin.settings.allFiles = value;
             this.plugin.saveSettings();
             this.updateFolderScopeVisibility();
-            this.performSearch();
+            this.searchController.performSearch();
         });
 
         createToggle(optionsContainer, 'Replace', this.plugin.settings.replaceEnabled, (value) => {
@@ -195,7 +192,7 @@ export class RegexFindReplaceView extends ItemView {
                 this.plugin.settings.folderScope = path;
                 this.plugin.saveSettings();
                 folderLabel.textContent = path ? `📁 ${path}` : '📁 All';
-                this.performSearch();
+                this.searchController.performSearch();
             });
             modal.open();
         };
@@ -204,6 +201,7 @@ export class RegexFindReplaceView extends ItemView {
         const buttonContainer = searchSection.createDiv('button-container');
 
         this.replaceAllBtn = buttonContainer.createEl('button', { text: 'Replace Checked', cls: 'mod-cta' });
+        this.replaceAllBtn.title = 'Replace Checked (Ctrl+Shift+Enter)';
         this.replaceAllBtn.onclick = () => this.actionHandler.replaceAll();
 
         this.selectAllBtn = buttonContainer.createEl('button', { text: 'Select All', cls: 'mod-muted' });
@@ -250,13 +248,13 @@ export class RegexFindReplaceView extends ItemView {
             if (e.key === "Enter") {
                 if (e.ctrlKey || e.metaKey) {
                     e.preventDefault();
-                    if (e.shiftKey) this.actionHandler.replaceAll();
-                    else this.performSearch();
+                    if (e.shiftKey || e.target === this.replaceInput) this.actionHandler.replaceAll();
+                    else this.searchController.performSearch();
                 } else if (!e.shiftKey && e.target === this.findInput) {
                     e.preventDefault();
                     this.plugin.settings.findText = this.findInput.value;
                     this.plugin.saveSettings();
-                    this.performSearch();
+                    this.searchController.performSearch();
                 }
             }
         };
@@ -302,7 +300,7 @@ export class RegexFindReplaceView extends ItemView {
             (active) => {
                 this.plugin.settings.caseInsensitive = !active;
                 this.plugin.saveSettings();
-                this.performSearch();
+                this.searchController.performSearch();
             }
         );
 
@@ -314,7 +312,7 @@ export class RegexFindReplaceView extends ItemView {
             (active) => {
                 this.plugin.settings.wholeWord = active;
                 this.plugin.saveSettings();
-                this.performSearch();
+                this.searchController.performSearch();
             }
         );
 
@@ -331,14 +329,10 @@ export class RegexFindReplaceView extends ItemView {
 
     updateUI() {
         const enabled = this.plugin.settings.replaceEnabled;
-        const setDisabled = (el: HTMLElement & { disabled?: boolean }) => {
-            el.disabled = !enabled;
-            el.toggleClass('disabled', !enabled);
-        };
-        setDisabled(this.replaceInput);
-        setDisabled(this.replaceAllBtn);
-        setDisabled(this.selectAllBtn);
-        setDisabled(this.deselectAllBtn);
+        if (this.replaceRow) this.replaceRow.style.display = enabled ? '' : 'none';
+        if (this.replaceAllBtn) this.replaceAllBtn.style.display = enabled ? '' : 'none';
+        if (this.selectAllBtn) this.selectAllBtn.style.display = enabled ? '' : 'none';
+        if (this.deselectAllBtn) this.deselectAllBtn.style.display = enabled ? '' : 'none';
         this.updateRegexFlagsVisibility();
         this.updateFolderScopeVisibility();
     }
@@ -365,7 +359,7 @@ export class RegexFindReplaceView extends ItemView {
             this.updatePillsUI?.();
             this.updateRegexFlagsVisibility();
             
-            await this.performSearch();
+            await this.searchController.performSearch();
             
         } catch (e: any) {
             this.searchInProgress = false;
@@ -374,9 +368,11 @@ export class RegexFindReplaceView extends ItemView {
         }
     }
 
-    async performSearch() {
-        await this.searchController.performSearch();
+    isMatchSelected(id: string): boolean {
+        return this.pendingReplacements.get(id) !== false;
     }
+
+
 
     selectAll() {
         if (!this.plugin.settings.replaceEnabled) return;
@@ -394,7 +390,6 @@ export class RegexFindReplaceView extends ItemView {
     }
 
     loadMore() {
-        this.renderLimit = PAGE_SIZE;
         this.matchRenderer.renderMatches({ append: true });
     }
 
@@ -406,10 +401,10 @@ export class RegexFindReplaceView extends ItemView {
 
     updateHeader(limitReached = false) {
         if (this.matches.length === 0) {
-            this.headerTextEl.setText('No matches found');
+            this.headerTextEl.innerHTML = '<span style="opacity: 0.6; font-size: 1.1em; vertical-align: middle; margin-right: 4px;">🔍</span><span style="opacity:0.8">No matches found</span>';
         } else {
             const countStr = limitReached ? `${MAX_MATCHES}+` : `${this.matches.length}`;
-            this.headerTextEl.setText(`Found ${countStr} match${this.matches.length !== 1 ? 'es' : ''}`);
+            this.headerTextEl.setText(`Found ${countStr} ${this.matches.length !== 1 ? 'matches' : 'match'}`);
         }
     }
 
@@ -430,7 +425,7 @@ export class RegexFindReplaceView extends ItemView {
     showUndoBanner(count: number) {
         this.undoBanner.empty();
         this.undoBanner.style.display = '';
-        this.undoBanner.createEl('span', { text: `✅ Replaced ${count} match${count !== 1 ? 'es' : ''}. `, cls: 'undo-banner-text' });
+        this.undoBanner.createEl('span', { text: `✅ ${pluralize('match', count)} replaced. `, cls: 'undo-banner-text' });
         const undoLink = this.undoBanner.createEl('button', { text: 'Undo', cls: 'undo-banner-btn' });
         undoLink.onclick = () => this.actionHandler.doUndo();
 
@@ -440,6 +435,6 @@ export class RegexFindReplaceView extends ItemView {
         this.undoBannerTimer = setTimeout(() => {
             if (this.undoBanner) this.undoBanner.style.display = 'none';
             this.undoBannerTimer = null;
-        }, 8000) as any;
+        }, 8000);
     }
 }

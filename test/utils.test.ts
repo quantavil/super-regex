@@ -1,5 +1,5 @@
 import { expect, test, describe } from "bun:test";
-import { buildRegex, getReplacementText } from "../src/utils";
+import { buildRegex, getReplacementText, pluralize, escapeRegex } from "../src/utils";
 
 describe("buildRegex", () => {
   test("creates a valid RegExp from pattern", () => {
@@ -50,5 +50,39 @@ describe("getReplacementText", () => {
   test("applies standard string replacement cleanly", () => {
     const result = getReplacementText(true, "hello", /h/g, "H");
     expect(result).toBe("Hello");
+  });
+});
+
+describe("pluralize", () => {
+  test("singular when count is 1", () => {
+    expect(pluralize("match", 1)).toBe("1 match");
+    expect(pluralize("file", 1)).toBe("1 file");
+  });
+
+  test("adds 'es' for words ending in ch/s/x", () => {
+    expect(pluralize("match", 3)).toBe("3 matches");
+  });
+
+  test("adds 's' for regular words", () => {
+    expect(pluralize("file", 5)).toBe("5 files");
+    expect(pluralize("replacement", 2)).toBe("2 replacements");
+  });
+
+  test("handles zero", () => {
+    expect(pluralize("match", 0)).toBe("0 matches");
+  });
+});
+
+describe("escapeRegex", () => {
+  test("escapes special regex characters", () => {
+    expect(escapeRegex("a.b*c+d")).toBe("a\\.b\\*c\\+d");
+  });
+
+  test("escapes brackets and parens", () => {
+    expect(escapeRegex("[foo](bar)")).toBe("\\[foo\\]\\(bar\\)");
+  });
+
+  test("passes through plain text", () => {
+    expect(escapeRegex("hello world")).toBe("hello world");
   });
 });

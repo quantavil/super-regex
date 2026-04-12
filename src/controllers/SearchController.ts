@@ -2,7 +2,7 @@ import { TFile } from 'obsidian';
 import { RegexFindReplaceView } from '../view';
 import { SearchConfig, findAllMatchesInLine } from '../search';
 import { PAGE_SIZE, MAX_MATCHES, FileMatch } from '../types';
-import { buildRegex, escapeRegex } from '../utils';
+import { buildRegex, escapeRegex, logger, LogLevel } from '../utils';
 
 export class SearchController {
     constructor(private view: RegexFindReplaceView) {}
@@ -40,7 +40,7 @@ export class SearchController {
                 const safeWord = escapeRegex(w);
                 return { word: w, re: new RegExp(safeWord, caseInsensitive ? 'i' : '') }; 
             } catch (_) { 
-                console.warn(`Skipping invalid pipe pattern: ${w}`);
+                logger(`Skipping invalid pipe pattern: ${w}`, LogLevel.WARN);
                 return null;
             }
         }).filter((p): p is { word: string; re: RegExp } => p !== null) : null;
@@ -107,6 +107,7 @@ export class SearchController {
 
         this.view.searchInProgress = false;
         this.view.updateHeader(limitReached);
+        this.view.matchRenderer.updateBadgeCounts();
 
         if (isPipeSearch && foundWords) this.view.matchRenderer.displayNotFoundWords(searchWords, foundWords);
     }

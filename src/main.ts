@@ -2,7 +2,7 @@ import { Plugin, Notice, TFile, MarkdownView } from 'obsidian';
 import { RegexFindReplaceSettingTab } from './settingsTab';
 import { RegexFindReplaceView } from './view';
 import { DEFAULT_SETTINGS, RegexFindReplaceSettings, VIEW_TYPE_REGEX_FIND_REPLACE, MatchOperation, MAX_HISTORY, FileMatch, FileChange } from './types';
-import { logger, getReplacementText, buildFlags, LogLevel } from './utils';
+import { logger, getReplacementText, buildFlags, pluralize, LogLevel } from './utils';
 
 export default class RegexFindReplacePlugin extends Plugin {
     settings!: RegexFindReplaceSettings;
@@ -85,7 +85,7 @@ export default class RegexFindReplacePlugin extends Plugin {
             }
         }
 
-        new Notice(`Reverted ${lastOp.count} replacement(s) in ${revertedFiles} file(s).`);
+        new Notice(`Reverted ${pluralize('replacement', lastOp.count)} in ${pluralize('file', revertedFiles)}.`);
     }
 
     getHistoryCharCount(): number {
@@ -173,6 +173,5 @@ export default class RegexFindReplacePlugin extends Plugin {
             }
         }
 
-        new Notice(`Replaced ${totalReplacements} match${totalReplacements !== 1 ? 'es' : ''} in ${changes.length} file${changes.length !== 1 ? 's' : ''}`);
-    }
+        new Notice(`Replaced ${pluralize('match', totalReplacements)} in ${pluralize('file', changes.length)}`);    }
 }

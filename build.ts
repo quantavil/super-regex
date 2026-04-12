@@ -36,12 +36,17 @@ if (isWatch) {
   console.log("Watching for changes...");
   import("fs").then(fs => {
     let buildTimeout: any = null;
-    fs.watch(resolve("src"), { recursive: true }, async () => {
+    const debouncedBuild = () => {
       if (buildTimeout) clearTimeout(buildTimeout);
       buildTimeout = setTimeout(async () => {
         console.log("Change detected, rebuilding...");
         await build();
       }, 100);
-    });
+    };
+    fs.watch(resolve("src"), { recursive: true }, debouncedBuild);
+    // Also watch root assets so CSS/manifest changes trigger copy
+    for (const asset of ["styles.css", "manifest.json"]) {
+      try { fs.watch(resolve(asset), debouncedBuild); } catch (_) {}
+    }
   });
 }

@@ -1,5 +1,10 @@
 import { mock } from "bun:test";
 
+// Polyfill browser APIs missing in Bun test env
+if (typeof globalThis.requestAnimationFrame === 'undefined') {
+    (globalThis as any).requestAnimationFrame = (cb: Function) => setTimeout(cb, 0);
+}
+
 mock.module("obsidian", () => {
     return {
         Plugin: class {},

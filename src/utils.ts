@@ -45,3 +45,12 @@ export const getReplacementText = (isRegex: boolean, matchText: string, searchRe
 export function escapeRegex(string: string) {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
+
+export const pluralize = (word: string, count: number): string =>
+    `${count} ${word}${count !== 1 ? (word.endsWith('ch') || word.endsWith('s') || word.endsWith('x') ? 'es' : 's') : ''}`;
+
+export function initAutoResize(el: HTMLTextAreaElement) {
+    const resize = () => { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; };
+    el.addEventListener('input', resize);
+    setTimeout(resize, 0);
+}

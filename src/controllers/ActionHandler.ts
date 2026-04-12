@@ -7,7 +7,7 @@ export class ActionHandler {
 
     async replaceAll() {
         if (!this.view.plugin.settings.replaceEnabled || this.view.matches.length === 0) return;
-        const replacements = this.view.matches.filter(m => this.view.pendingReplacements.get(m.id) !== false);
+        const replacements = this.view.matches.filter(m => this.view.isMatchSelected(m.id));
         if (!replacements.length) { new Notice('No replacements selected'); return; }
         await this.submitReplacements(replacements);
     }
@@ -16,12 +16,14 @@ export class ActionHandler {
         const replaceText = this.view.replaceInput.value;
         await this.view.plugin.performReplacements(matches, this.view.currentSearchRegex, replaceText);
         this.view.showUndoBanner(matches.length);
-        await this.view.performSearch();
+        await this.view.searchController.performSearch();
+        this.view.findInput.focus();
     }
 
     async doUndo() {
         await this.view.plugin.undoLast();
-        await this.view.performSearch();
+        await this.view.searchController.performSearch();
+        this.view.findInput.focus();
     }
 
     exportMatches() {

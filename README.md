@@ -7,7 +7,7 @@ Super Regex is an advanced Find & Replace plugin for Obsidian. It provides a ded
 *   **AI-Powered Regex ✨:** Describe what you want to find in plain English (e.g. "email addresses", "dates in YYYY-MM-DD format"), click the `✨ Convert to RegEx` button, and let Google's Gemini API generate the pattern for you automatically.
 *   **Dual Search Modes:** Switch between **Text** (literal string bounds) and **RegEx** (full expression support) via a simple pill selector.
 *   **Flexible Scoping:** Search your entire vault, restrict to specific folders via a fuzzy finder, or search within the currently active document.
-*   **Granular Control:** Preview match contexts inline with real-time replacement previews. Select individual matches using checkboxes before committing.
+*   **Granular Control:** Preview match contexts inline with real-time replacement previews. Check individual matches for bulk actions, or use the inline **Apply arrow** (`❯`) to instantly replace a specific match.
 *   **Safe Undo Mechanism:** A prominent Undo banner appears after bulk operations, allowing quick reversal. Protected by a history cap.
 *   **Export Matches:** Copy all grep-style match results (`file:line:col: text`) to clipboard.
 *   **Plaintext Pipe Matching:** Separate multiple words using pipes (`|`) in Text mode to track which terms were "Not Found".
@@ -23,8 +23,8 @@ Super Regex is an advanced Find & Replace plugin for Obsidian. It provides a ded
 4. Toggle `All Files` and click `📁 All` to restrict to a folder if needed.
 5. Define the replacement string in the *Replace* input.
 6. Review inline match previews in the results pane.
-7. Hit **Replace Checked** to execute.
-8. Made a mistake? Click **Undo** on the banner or use the Undo button/command.
+7. Hit **Replace Checked** to execute bulk changes, or use the `❯` arrow on individual matches for quick inline replacements.
+8. Made a mistake? Click **Undo** on the banner or use the Undo button/command. Focus automatically returns to the search input.
 
 ## AI Setup
 

@@ -39,10 +39,16 @@ test/
 ## Insights
 - **AI-as-a-Tool:** AI is a generator tool for RegEx mode, not a standalone search mode.
 - **Standardized State:** `pendingReplacements` Map uses strictly `true` (selected) and `false` (deselected) values.
-- **Debounced Writes:** `saveSettings` uses a 500ms debounce to minimize disk I/O.
+- **Debounced Writes:** `saveSettings` uses a 500ms debounce to minimize disk I/O on text inputs, but discrete UI toggles inherently invoke it synchronously without penalty.
+- **Adaptive Layouts:** Completely hiding (`display: none`) the Replace row and its specific action buttons when replacing is disabled reclaims significant vertical space over graying them out.
 
 ## Blunders
 - SVG injection directly to `innerHTML` violates security standards. Use `DOMParser.parseFromString` instead.
 - `createEl('option')` doesn't set `.value`. Must be set explicitly on the element instance.
 - Bun `mock.module` globally overrides resolution; redefining in individual files causes sibling failures. Define centrally and use `globalThis` for runtime changes.
 - Stale `fileContainers` DOM references caused invisible results on second search. Must be cleared on search reset.
+- Match count badges froze at creation time during progressive rendering. Must call `updateBadgeCounts()` after search completes.
+- `renderLimit` implicitly acted as a chunk size but was named like a ceiling. Misnamed state variables degrade maintainability; reverted to direct `PAGE_SIZE` usage.
+- Forwarding `performSearch()` through `view.ts` instead of calling `searchController` directly tied UI events unnecessarily to the View layer.
+- `navigateToMatch()` existed on view but was never wired to any click handler — dead code for entire feature lifecycle.
+- Bun test env lacks `requestAnimationFrame`. Polyfill in `test/setup.ts` with `setTimeout(cb, 0)`.

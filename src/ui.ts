@@ -68,8 +68,3 @@ export function renderMatchPreview(container: HTMLElement, match: FileMatch, opt
     if (contextEnd < line.length) container.createEl('span', { text: '…', cls: 'ellipsis' });
 }
 
-export function autoResizeTextarea(el: HTMLTextAreaElement) {
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = el.scrollHeight + 'px';
-}
