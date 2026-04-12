@@ -11,7 +11,6 @@ export interface RegexFindReplaceSettings {
     allFiles: boolean;
     replaceEnabled: boolean;
     wholeWord: boolean;
-    searchHistory: string[];
     folderScope: string;
 }
 
@@ -26,7 +25,6 @@ export const DEFAULT_SETTINGS: RegexFindReplaceSettings = {
     allFiles: false,
     replaceEnabled: true,
     wholeWord: false,
-    searchHistory: [],
     folderScope: ''
 };
 

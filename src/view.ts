@@ -88,27 +88,6 @@ export class RegexFindReplaceView extends ItemView {
 
         const findInputWrapper = findContainer.createDiv('find-input-wrapper');
 
-        const historyBtn = findInputWrapper.createEl('button', { cls: 'regex-history-button', title: 'Search History' });
-        historyBtn.textContent = '🕒';
-        historyBtn.onclick = (e) => {
-            const menu = new Menu();
-            if (!this.plugin.settings.searchHistory || this.plugin.settings.searchHistory.length === 0) {
-                menu.addItem(i => i.setTitle('No history').setDisabled(true));
-            } else {
-                for (const h of this.plugin.settings.searchHistory) {
-                    menu.addItem(item => {
-                        item.setTitle(h).onClick(() => {
-                            this.findInput.value = h;
-                            this.plugin.settings.findText = h;
-                            this.plugin.saveSettings();
-                            this.performSearch();
-                        });
-                    });
-                }
-            }
-            menu.showAtMouseEvent(e);
-        };
-
         this.findInput = findInputWrapper.createEl('textarea', {
             placeholder: 'Search pattern…'
         });
@@ -352,12 +331,6 @@ export class RegexFindReplaceView extends ItemView {
         }
 
         this.currentSearchText = searchText;
-        if (!this.plugin.settings.searchHistory) this.plugin.settings.searchHistory = [];
-        if (!this.plugin.settings.searchHistory.includes(searchText)) {
-            this.plugin.settings.searchHistory.unshift(searchText);
-            if (this.plugin.settings.searchHistory.length > 10) this.plugin.settings.searchHistory.pop();
-            this.plugin.saveSettings();
-        }
 
         const { useRegEx, caseInsensitive, allFiles, wholeWord } = this.plugin.settings;
 

@@ -10,7 +10,7 @@ Super Regex is an advanced Find & Replace plugin for Obsidian. It provides a ded
 *   **Safe Undo Mechanism:** A prominent Undo banner appears immediately after bulk operations, allowing you to quickly reverse replacements. Protected by a history cap to prevent memory leaks on enormous vaults.
 *   **Export Matches:** Copy all grep-style match results (`file:line:col: text`) directly to your clipboard.
 *   **Plaintext Pipe Matching:** Separate multiple words using standard pipes (`|`) when Regex is disabled to quickly track which exact words were "Not Found".
-*   **Keyboard Friendly:** Press `Ctrl/Cmd+Enter` to search and `Ctrl/Cmd+Shift+Enter` to execute replacements directly from the input fields. History dropdown tracks your recent patterns.
+*   **Keyboard Friendly:** Press `Ctrl/Cmd+Enter` to search and `Ctrl/Cmd+Shift+Enter` to execute replacements directly from the input fields.
 
 ## How to Use
 
