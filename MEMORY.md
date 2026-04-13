@@ -28,6 +28,8 @@ test/
 ## Conventions
 - **Modularized Views:** Logic must be split between specialized controllers and renderers to prevent `view.ts` bloat.
 - **Vanilla DOM:** Obsidian's `HTMLElement` API (`createDiv`, `createEl`) preferred.
+- **UI Elements:** Use `.setCssProps()` or CSS classes instead of directly mutating `element.style.display`.
+- **Text Casing:** Use sentence case ("Like this label") for command titles and UI elements per Obsidian UI guidelines.
 - **Security:** SVG icons must be injected via `DOMParser` in `ui.ts` to strictly follow security policies.
 - **Mocking:** Unit tests use `test/setup.ts` via `bunfig.toml` preloading. Runtime configuration of mocks is done via `globalThis.mockRequestUrl`.
 
@@ -52,3 +54,5 @@ test/
 - Forwarding `performSearch()` through `view.ts` instead of calling `searchController` directly tied UI events unnecessarily to the View layer.
 - `navigateToMatch()` existed on view but was never wired to any click handler — dead code for entire feature lifecycle.
 - Bun test env lacks `requestAnimationFrame`. Polyfill in `test/setup.ts` with `setTimeout(cb, 0)`.
+- Modifying DOM via `innerHTML` triggers audit failures. Use `empty()` and `createEl/createSpan` instead.
+- Typing error catch variable as `any`. TypeScript and linters prefer `catch (e: unknown)`.
