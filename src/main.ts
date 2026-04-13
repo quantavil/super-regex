@@ -25,7 +25,7 @@ export default class RegexFindReplacePlugin extends Plugin {
 
         this.addCommand({
             id: 'obsidian-regex-replace-undo',
-            name: 'Regex find/replace: Revert last operation',
+            name: 'Regex find/replace: revert last operation',
             callback: async () => await this.undoLast()
         });
     }

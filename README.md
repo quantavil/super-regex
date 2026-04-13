@@ -35,6 +35,16 @@ Super Regex is an advanced Find & Replace plugin for Obsidian. It provides a ded
 7. Hit **Replace Checked** to execute bulk changes, or use the `❯` arrow on individual matches for quick inline replacements.
 8. Made a mistake? Click **Undo** on the banner or use the Undo button/command. Focus automatically returns to the search input.
 
+## Common Use Cases
+
+Super Regex can help automate tedious text processing tasks. Here are a few examples:
+
+*   **Removing unintended blank lines:** Switch to RegEx mode, search for `^\s*[\r\n]+`, and leave the replace field empty to clean up excessive spacing.
+*   **Updating date formats:** Click the `✨` button and type "dates in MM/DD/YYYY format" to quickly find and standardize dates across your vault.
+*   **Fixing Markdown links:** Convert raw URLs to proper Markdown links or update wiki-links in bulk across a specific folder.
+*   **Removing trailing whitespace:** Find `\s+$` in RegEx mode and replace with nothing to quickly clean up messy line endings.
+*   **Typography standardization:** Bulk replace straight quotes (`"..."`) with curly quotes (`“…”`) or fix repetitive textual errors.
+
 ## AI Setup
 
 1. Go to **Settings → Super Regex → AI Configuration**.

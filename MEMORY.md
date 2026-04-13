@@ -56,3 +56,4 @@ test/
 - Bun test env lacks `requestAnimationFrame`. Polyfill in `test/setup.ts` with `setTimeout(cb, 0)`.
 - Modifying DOM via `innerHTML` triggers audit failures. Use `empty()` and `createEl/createSpan` instead.
 - Typing error catch variable as `any`. TypeScript and linters prefer `catch (e: unknown)`.
+- Emojis at the start of `.setText()` or `.setDesc()` trigger automated code scanner "sentence case" validation rules.

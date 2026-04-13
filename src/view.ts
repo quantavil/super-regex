@@ -454,7 +454,7 @@ export class RegexFindReplaceView extends ItemView {
     showUndoBanner(count: number) {
         this.undoBanner.empty();
         this.undoBanner.setCssProps({ display: '' });
-        this.undoBanner.createEl('span', { text: `✅ ${pluralize('match', count)} replaced. `, cls: 'undo-banner-text' });
+        this.undoBanner.createEl('span', { text: `${pluralize('match', count)} replaced. `, cls: 'undo-banner-text' });
         const undoLink = this.undoBanner.createEl('button', { text: 'Undo', cls: 'undo-banner-btn' });
         undoLink.onclick = () => this.actionHandler.doUndo();
 

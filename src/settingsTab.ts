@@ -14,7 +14,7 @@ export class RegexFindReplaceSettingTab extends PluginSettingTab {
         containerEl.empty();
         containerEl.addClass('super-regex-settings');
 
-        new Setting(containerEl).setName('Regular expression settings').setHeading();
+        new Setting(containerEl).setName('Regular expressions').setHeading();
 
         new Setting(containerEl)
             .setName('Case insensitive')
@@ -30,7 +30,7 @@ export class RegexFindReplaceSettingTab extends PluginSettingTab {
 
         new Setting(containerEl)
             .setName('API base URL')
-            .setDesc('OpenAI-compatible chat completions endpoint')
+            .setDesc('Base URL for chat completions API')
             .addText(t => t
                 .setValue(this.plugin.settings.aiBaseUrl)
                 .onChange(async (value) => {
@@ -71,11 +71,11 @@ export class RegexFindReplaceSettingTab extends PluginSettingTab {
             try {
                 const { generateRegex } = await import('./ai');
                 await generateRegex('match email', this.plugin.settings);
-                verifyStatus.setText('✅ Connection successful');
+                verifyStatus.setText('Connection successful');
                 verifyStatus.className = 'verify-status verify-ok';
             } catch (e: unknown) {
                 const message = e instanceof Error ? e.message : String(e);
-                verifyStatus.setText(`❌ Error: ${message}`);
+                verifyStatus.setText(`Error: ${message}`);
                 verifyStatus.className = 'verify-status verify-error';
             } finally {
                 verifyBtn.disabled = false;
