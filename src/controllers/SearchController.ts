@@ -14,7 +14,6 @@ export class SearchController {
         this.view.pendingReplacements.clear();
         this.view.matchesContainer.empty();
         this.view.initialBatchRendered = false;
-        this.view.renderLimit = PAGE_SIZE;
         this.view.renderedCount = 0;
         this.view.searchInProgress = true;
 
@@ -39,7 +38,7 @@ export class SearchController {
             try { 
                 const safeWord = escapeRegex(w);
                 return { word: w, re: new RegExp(safeWord, caseInsensitive ? 'i' : '') }; 
-            } catch (_) { 
+            } catch { 
                 logger(`Skipping invalid pipe pattern: ${w}`, LogLevel.WARN);
                 return null;
             }
@@ -63,7 +62,7 @@ export class SearchController {
                     this.view.updateLoadMoreVisibility();
                     return;
                 }
-            } catch (e) {
+            } catch {
                 this.view.headerTextEl.setText('Invalid regular expression');
                 this.view.searchInProgress = false;
                 this.view.updateLoadMoreVisibility();
@@ -99,7 +98,6 @@ export class SearchController {
         }
 
         if (!this.view.initialBatchRendered) {
-            this.view.renderLimit = Math.min(PAGE_SIZE, this.view.matches.length);
             this.view.matchRenderer.renderMatches({ append: false });
         } else {
             this.view.updateLoadMoreVisibility();

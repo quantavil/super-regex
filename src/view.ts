@@ -1,6 +1,6 @@
-import { ItemView, WorkspaceLeaf, Notice, TFile, MarkdownView, FuzzySuggestModal, TFolder } from 'obsidian';
+import { ItemView, WorkspaceLeaf, MarkdownView, FuzzySuggestModal, TFolder, App } from 'obsidian';
 import type RegexFindReplacePlugin from './main';
-import { VIEW_TYPE_REGEX_FIND_REPLACE, PAGE_SIZE, MAX_MATCHES, FileMatch, SearchMode } from './types';
+import { VIEW_TYPE_REGEX_FIND_REPLACE, FileMatch, SearchMode, MAX_MATCHES } from './types';
 import { debounce, pluralize, initAutoResize } from './utils';
 import { createToggle, createFlagButton } from './ui';
 import { ActionHandler } from './controllers/ActionHandler';
@@ -11,7 +11,7 @@ class FolderSuggest extends FuzzySuggestModal<TFolder> {
     folders: TFolder[];
     onChoose: (folder: TFolder) => void;
 
-    constructor(app: any, folders: TFolder[], onChoose: (folder: TFolder) => void) {
+    constructor(app: App, folders: TFolder[], onChoose: (folder: TFolder) => void) {
         super(app);
         this.folders = folders;
         this.onChoose = onChoose;
@@ -80,10 +80,10 @@ export class RegexFindReplaceView extends ItemView {
     }
 
     getViewType(): string { return VIEW_TYPE_REGEX_FIND_REPLACE; }
-    getDisplayText(): string { return "Find and Replace"; }
+    getDisplayText(): string { return "Find and replace"; }
     getIcon(): string { return "search"; }
 
-    async onOpen() {
+    onOpen(): Promise<void> {
         // Obsidian ItemView: children[0] is the header bar, children[1] is the content container
         const container = this.containerEl.children[1] as HTMLElement;
         container.empty();
@@ -91,13 +91,15 @@ export class RegexFindReplaceView extends ItemView {
 
         this.createUI(container);
         this.updateUI();
+        return Promise.resolve();
     }
 
-    async onClose() {
+    onClose(): Promise<void> {
         if (this.undoBannerTimer) {
             clearTimeout(this.undoBannerTimer);
             this.undoBannerTimer = null;
         }
+        return Promise.resolve();
     }
 
     createUI(container: HTMLElement) {
@@ -114,7 +116,7 @@ export class RegexFindReplaceView extends ItemView {
         });
         this.findInput.value = this.plugin.settings.findText;
 
-        this.aiBtn = findInputWrapper.createEl('button', { text: '✨', title: 'Convert natural language to RegEx', cls: 'ai-generate-btn-inline' });
+        this.aiBtn = findInputWrapper.createEl('button', { text: '✨', title: 'Convert natural language to regex', cls: 'ai-generate-btn-inline' });
         this.aiBtn.onclick = () => this.toggleAiRegex();
 
         this.regexFlagsContainer = findInputWrapper.createDiv('regex-flags-container');
@@ -143,7 +145,7 @@ export class RegexFindReplaceView extends ItemView {
         const textPill = modeContainer.createDiv('mode-pill');
         textPill.setText('Text');
         const regexPill = modeContainer.createDiv('mode-pill');
-        regexPill.setText('RegEx');
+        regexPill.setText('Regex');
 
         const updatePills = () => {
             if (this.plugin.settings.searchMode === 'text') {
@@ -159,26 +161,26 @@ export class RegexFindReplaceView extends ItemView {
 
         const setMode = (mode: SearchMode) => {
             this.plugin.settings.searchMode = mode;
-            this.plugin.saveSettings();
+            void this.plugin.saveSettings();
             updatePills();
             this.updateRegexFlagsVisibility();
-            this.searchController.performSearch();
+            void this.searchController.performSearch();
         };
 
         textPill.onclick = () => setMode('text');
         regexPill.onclick = () => setMode('regex');
         updatePills();
 
-        createToggle(optionsContainer, 'All Files', this.plugin.settings.allFiles, (value) => {
+        createToggle(optionsContainer, 'All files', this.plugin.settings.allFiles, (value) => {
             this.plugin.settings.allFiles = value;
-            this.plugin.saveSettings();
+            void this.plugin.saveSettings();
             this.updateFolderScopeVisibility();
-            this.searchController.performSearch();
+            void this.searchController.performSearch();
         });
 
         createToggle(optionsContainer, 'Replace', this.plugin.settings.replaceEnabled, (value) => {
             this.plugin.settings.replaceEnabled = value;
-            this.plugin.saveSettings();
+            void this.plugin.saveSettings();
             this.updateUI();
         });
 
@@ -192,9 +194,9 @@ export class RegexFindReplaceView extends ItemView {
             const modal = new FolderSuggest(this.app, allFolders, (folder) => {
                 const path = folder.path === '/' ? '' : folder.path;
                 this.plugin.settings.folderScope = path;
-                this.plugin.saveSettings();
+                void this.plugin.saveSettings();
                 folderLabel.textContent = path ? `📁 ${path}` : '📁 All';
-                this.searchController.performSearch();
+                void this.searchController.performSearch();
             });
             modal.open();
         };
@@ -202,21 +204,21 @@ export class RegexFindReplaceView extends ItemView {
 
         const buttonContainer = searchSection.createDiv('button-container');
 
-        this.replaceAllBtn = buttonContainer.createEl('button', { text: 'Replace Checked', cls: 'mod-cta' });
-        this.replaceAllBtn.title = 'Replace Checked (Ctrl+Shift+Enter)';
+        this.replaceAllBtn = buttonContainer.createEl('button', { text: 'Replace checked', cls: 'mod-cta' });
+        this.replaceAllBtn.title = 'Replace checked (Ctrl+Shift+Enter)';
         this.replaceAllBtn.onclick = () => this.actionHandler.replaceAll();
 
-        this.selectAllBtn = buttonContainer.createEl('button', { text: 'Select All', cls: 'mod-muted' });
+        this.selectAllBtn = buttonContainer.createEl('button', { text: 'Select all', cls: 'mod-muted' });
         this.selectAllBtn.onclick = () => this.selectAll();
 
-        this.deselectAllBtn = buttonContainer.createEl('button', { text: 'Deselect All', cls: 'mod-muted' });
+        this.deselectAllBtn = buttonContainer.createEl('button', { text: 'Deselect all', cls: 'mod-muted' });
         this.deselectAllBtn.onclick = () => this.deselectAll();
 
         this.undoBtn = buttonContainer.createEl('button', { text: 'Undo', cls: 'mod-muted' });
         this.undoBtn.onclick = () => this.actionHandler.doUndo();
 
         this.undoBanner = searchSection.createDiv('undo-banner');
-        this.undoBanner.style.display = 'none';
+        this.undoBanner.setCssProps({ display: 'none' });
 
         this.resultsContainer = container.createDiv('results-section');
         this.resultsHeader = this.resultsContainer.createDiv('results-header');
@@ -250,13 +252,13 @@ export class RegexFindReplaceView extends ItemView {
             if (e.key === "Enter") {
                 if (e.ctrlKey || e.metaKey) {
                     e.preventDefault();
-                    if (e.shiftKey || e.target === this.replaceInput) this.actionHandler.replaceAll();
-                    else this.searchController.performSearch();
+                    if (e.shiftKey || e.target === this.replaceInput) void this.actionHandler.replaceAll();
+                    else void this.searchController.performSearch();
                 } else if (!e.shiftKey && e.target === this.findInput) {
                     e.preventDefault();
                     this.plugin.settings.findText = this.findInput.value;
-                    this.plugin.saveSettings();
-                    this.searchController.performSearch();
+                    void this.plugin.saveSettings();
+                    void this.searchController.performSearch();
                 }
             }
         };
@@ -289,7 +291,7 @@ export class RegexFindReplaceView extends ItemView {
 
     updateFolderScopeVisibility() {
         if (this.folderScopeEl) {
-            this.folderScopeEl.style.display = this.plugin.settings.allFiles ? '' : 'none';
+            this.folderScopeEl.setCssProps({ display: this.plugin.settings.allFiles ? '' : 'none' });
         }
     }
 
@@ -301,8 +303,8 @@ export class RegexFindReplaceView extends ItemView {
             !this.plugin.settings.caseInsensitive,
             (active) => {
                 this.plugin.settings.caseInsensitive = !active;
-                this.plugin.saveSettings();
-                this.searchController.performSearch();
+                void this.plugin.saveSettings();
+                void this.searchController.performSearch();
             }
         );
 
@@ -313,8 +315,8 @@ export class RegexFindReplaceView extends ItemView {
             this.plugin.settings.wholeWord,
             (active) => {
                 this.plugin.settings.wholeWord = active;
-                this.plugin.saveSettings();
-                this.searchController.performSearch();
+                void this.plugin.saveSettings();
+                void this.searchController.performSearch();
             }
         );
 
@@ -323,20 +325,20 @@ export class RegexFindReplaceView extends ItemView {
 
     updateRegexFlagsVisibility() {
         if (this.plugin.settings.searchMode !== 'text') {
-            this.wholeWordButton.style.display = 'flex';
-            if (this.aiBtn) this.aiBtn.style.display = 'block';
+            this.wholeWordButton.setCssProps({ display: 'flex' });
+            if (this.aiBtn) this.aiBtn.setCssProps({ display: 'block' });
         } else {
-            this.wholeWordButton.style.display = 'none';
-            if (this.aiBtn) this.aiBtn.style.display = 'none';
+            this.wholeWordButton.setCssProps({ display: 'none' });
+            if (this.aiBtn) this.aiBtn.setCssProps({ display: 'none' });
         }
     }
 
     updateUI() {
         const enabled = this.plugin.settings.replaceEnabled;
-        if (this.replaceRow) this.replaceRow.style.display = enabled ? '' : 'none';
-        if (this.replaceAllBtn) this.replaceAllBtn.style.display = enabled ? '' : 'none';
-        if (this.selectAllBtn) this.selectAllBtn.style.display = enabled ? '' : 'none';
-        if (this.deselectAllBtn) this.deselectAllBtn.style.display = enabled ? '' : 'none';
+        if (this.replaceRow) this.replaceRow.setCssProps({ display: enabled ? '' : 'none' });
+        if (this.replaceAllBtn) this.replaceAllBtn.setCssProps({ display: enabled ? '' : 'none' });
+        if (this.selectAllBtn) this.selectAllBtn.setCssProps({ display: enabled ? '' : 'none' });
+        if (this.deselectAllBtn) this.deselectAllBtn.setCssProps({ display: enabled ? '' : 'none' });
         this.updateRegexFlagsVisibility();
         this.updateFolderScopeVisibility();
     }
@@ -348,7 +350,7 @@ export class RegexFindReplaceView extends ItemView {
             this.plugin.settings.findText = this.originalPrompt;
             this.originalPrompt = null;
             this.aiBtn.classList.remove('active');
-            this.plugin.saveSettings();
+            void this.plugin.saveSettings();
             await this.searchController.performSearch();
             return;
         }
@@ -359,7 +361,7 @@ export class RegexFindReplaceView extends ItemView {
 
         this.originalPrompt = prompt;
         this.aiBtn.classList.add('active');
-        this.headerTextEl.setText('Generating RegEx via AI ✨...');
+        this.headerTextEl.setText('Generating regex via AI ✨...');
         this.searchInProgress = true;
         this.updateLoadMoreVisibility();
         this.matchesContainer.empty();
@@ -371,7 +373,7 @@ export class RegexFindReplaceView extends ItemView {
             this.findInput.value = result;
             this.plugin.settings.findText = result;
             this.plugin.settings.searchMode = 'regex';
-            this.plugin.saveSettings();
+            void this.plugin.saveSettings();
             
             this.updatePillsUI?.();
             this.updateRegexFlagsVisibility();
@@ -379,11 +381,12 @@ export class RegexFindReplaceView extends ItemView {
             this.searchInProgress = false; // Allow search to proceed and update header
             await this.searchController.performSearch();
             
-        } catch (e: any) {
+        } catch (e: unknown) {
+            const message = e instanceof Error ? e.message : String(e);
             this.searchInProgress = false;
             this.originalPrompt = null;
             this.aiBtn.classList.remove('active');
-            this.headerTextEl.setText(`AI Error: ${e.message}`);
+            this.headerTextEl.setText(`AI Error: ${message}`);
             this.updateLoadMoreVisibility();
         }
     }
@@ -415,13 +418,19 @@ export class RegexFindReplaceView extends ItemView {
 
     updateLoadMoreVisibility() {
         if (this.loadMoreLink) {
-            this.loadMoreLink.style.display = (this.renderedCount < this.matches.length) ? '' : 'none';
+            this.loadMoreLink.setCssProps({ display: (this.renderedCount < this.matches.length) ? '' : 'none' });
         }
     }
 
     updateHeader(limitReached = false) {
         if (this.matches.length === 0) {
-            this.headerTextEl.innerHTML = '<span style="opacity: 0.6; font-size: 1.1em; vertical-align: middle; margin-right: 4px;">🔍</span><span style="opacity:0.8">No matches found</span>';
+            this.headerTextEl.empty();
+            const icon = this.headerTextEl.createSpan();
+            icon.setCssProps({ opacity: '0.6', fontSize: '1.1em', verticalAlign: 'middle', marginRight: '4px' });
+            icon.textContent = '🔍';
+            const text = this.headerTextEl.createSpan();
+            text.setCssProps({ opacity: '0.8' });
+            text.textContent = 'No matches found';
         } else {
             const countStr = limitReached ? `${MAX_MATCHES}+` : `${this.matches.length}`;
             this.headerTextEl.setText(`Found ${countStr} ${this.matches.length !== 1 ? 'matches' : 'match'}`);
@@ -444,7 +453,7 @@ export class RegexFindReplaceView extends ItemView {
 
     showUndoBanner(count: number) {
         this.undoBanner.empty();
-        this.undoBanner.style.display = '';
+        this.undoBanner.setCssProps({ display: '' });
         this.undoBanner.createEl('span', { text: `✅ ${pluralize('match', count)} replaced. `, cls: 'undo-banner-text' });
         const undoLink = this.undoBanner.createEl('button', { text: 'Undo', cls: 'undo-banner-btn' });
         undoLink.onclick = () => this.actionHandler.doUndo();
@@ -453,7 +462,7 @@ export class RegexFindReplaceView extends ItemView {
 
         // Auto-hide after 8 seconds
         this.undoBannerTimer = setTimeout(() => {
-            if (this.undoBanner) this.undoBanner.style.display = 'none';
+            if (this.undoBanner) this.undoBanner.setCssProps({ display: 'none' });
             this.undoBannerTimer = null;
         }, 8000);
     }

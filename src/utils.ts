@@ -10,11 +10,11 @@ export const logThreshold = LogLevel.INFO;
 export const logger = (msg: string, lvl: LogLevel = LogLevel.DEBUG) => { 
     if (lvl >= logThreshold) {
         if (lvl >= LogLevel.ERROR) console.error('RegexFiRe:', msg);
-        else console.log('RegexFiRe:', msg);
+        else console.debug('RegexFiRe:', msg);
     }
 };
 
-export const debounce = <T extends (...args: any[]) => void>(fn: T, delay: number = 300) => {
+export const debounce = <T extends (...args: unknown[]) => void>(fn: T, delay: number = 300) => {
   let t: ReturnType<typeof setTimeout>;
   return (...args: Parameters<T>) => {
     clearTimeout(t);
@@ -35,7 +35,7 @@ export const getReplacementText = (isRegex: boolean, matchText: string, searchRe
     if (isRegex && searchRegex) {
         try {
             return matchText.replace(searchRegex, replaceText);
-        } catch (_) {
+        } catch {
             return matchText;
         }
     }
@@ -50,7 +50,7 @@ export const pluralize = (word: string, count: number): string =>
     `${count} ${word}${count !== 1 ? (word.endsWith('ch') || word.endsWith('s') || word.endsWith('x') ? 'es' : 's') : ''}`;
 
 export function initAutoResize(el: HTMLTextAreaElement) {
-    const resize = () => { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; };
+    const resize = () => { el.setCssProps({ height: 'auto' }); el.setCssProps({ height: el.scrollHeight + 'px' }); };
     el.addEventListener('input', resize);
     setTimeout(resize, 0);
 }

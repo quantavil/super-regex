@@ -58,8 +58,9 @@ CRITICAL: DO NOT include any explanations, markdown formatting, slashes at the s
         } else {
             throw new Error('Unexpected response format from API');
         }
-    } catch (e: any) {
-        logger(`Failed to generate regex: ${e.message}`, LogLevel.ERROR);
+    } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : String(e);
+        logger(`Failed to generate regex: ${message}`, LogLevel.ERROR);
         throw e;
     }
 }

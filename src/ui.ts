@@ -60,8 +60,8 @@ export function renderMatchPreview(container: HTMLElement, match: FileMatch, opt
     });
 
     // Inline replacement right after the struck-through match
-    if (hasChange) {
-        container.createEl('span', { text: replacement!, cls: 'replacement-inline' });
+    if (hasChange && replacement !== null) {
+        container.createEl('span', { text: replacement, cls: 'replacement-inline' });
     }
 
     container.createEl('span', { text: line.substring(end, contextEnd), cls: 'context' });

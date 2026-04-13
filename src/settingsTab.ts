@@ -14,10 +14,10 @@ export class RegexFindReplaceSettingTab extends PluginSettingTab {
         containerEl.empty();
         containerEl.addClass('super-regex-settings');
 
-        containerEl.createEl('h4', { text: 'Regular Expression Settings' });
+        new Setting(containerEl).setName('Regular expression settings').setHeading();
 
         new Setting(containerEl)
-            .setName('Case Insensitive')
+            .setName('Case insensitive')
             .setDesc('When using regular expressions, apply the \'i\' modifier for case insensitive search')
             .addToggle(t => t
                 .setValue(this.plugin.settings.caseInsensitive)
@@ -26,10 +26,10 @@ export class RegexFindReplaceSettingTab extends PluginSettingTab {
                     await this.plugin.saveSettings();
                 }));
 
-        containerEl.createEl('h4', { text: 'AI Configuration' });
+        new Setting(containerEl).setName('AI configuration').setHeading();
 
         new Setting(containerEl)
-            .setName('API Base URL')
+            .setName('API base URL')
             .setDesc('OpenAI-compatible chat completions endpoint')
             .addText(t => t
                 .setValue(this.plugin.settings.aiBaseUrl)
@@ -39,7 +39,7 @@ export class RegexFindReplaceSettingTab extends PluginSettingTab {
                 }));
 
         new Setting(containerEl)
-            .setName('API Key')
+            .setName('API key')
             .setDesc('Your API key for the selected provider')
             .addText(t => {
                 t.inputEl.type = 'password';
@@ -61,7 +61,7 @@ export class RegexFindReplaceSettingTab extends PluginSettingTab {
                 }));
 
         const verifyContainer = containerEl.createDiv('ai-verify-btn-container');
-        const verifyBtn = verifyContainer.createEl('button', { text: 'Verify API Configuration' });
+        const verifyBtn = verifyContainer.createEl('button', { text: 'Verify API configuration' });
         const verifyStatus = verifyContainer.createEl('span', { cls: 'verify-status', text: '' });
 
         verifyBtn.onclick = async () => {
@@ -73,8 +73,9 @@ export class RegexFindReplaceSettingTab extends PluginSettingTab {
                 await generateRegex('match email', this.plugin.settings);
                 verifyStatus.setText('✅ Connection successful');
                 verifyStatus.className = 'verify-status verify-ok';
-            } catch (e: any) {
-                verifyStatus.setText(`❌ Error: ${e.message}`);
+            } catch (e: unknown) {
+                const message = e instanceof Error ? e.message : String(e);
+                verifyStatus.setText(`❌ Error: ${message}`);
                 verifyStatus.className = 'verify-status verify-error';
             } finally {
                 verifyBtn.disabled = false;

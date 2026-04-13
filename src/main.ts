@@ -15,36 +15,35 @@ export default class RegexFindReplacePlugin extends Plugin {
         this.registerView(VIEW_TYPE_REGEX_FIND_REPLACE, (leaf) => new RegexFindReplaceView(leaf, this));
         this.addSettingTab(new RegexFindReplaceSettingTab(this.app, this));
 
-        this.addRibbonIcon("search", "Open Regex Find & Replace", () => this.activateView());
+        this.addRibbonIcon("search", "Open regex find & replace", () => this.activateView());
 
         this.addCommand({
             id: 'open-regex-find-replace',
-            name: 'Open Find and Replace panel',
+            name: 'Open find and replace panel',
             callback: () => this.activateView()
         });
 
         this.addCommand({
             id: 'obsidian-regex-replace-undo',
-            name: 'Regex Find/Replace: Revert last operation',
+            name: 'Regex find/replace: Revert last operation',
             callback: async () => await this.undoLast()
         });
     }
 
     onunload() {
         logger('Bye!', LogLevel.INFO);
-        this.app.workspace.detachLeavesOfType(VIEW_TYPE_REGEX_FIND_REPLACE);
     }
 
     async activateView() {
         const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_REGEX_FIND_REPLACE);
         if (leaves.length > 0) {
-            this.app.workspace.revealLeaf(leaves[0]);
+            await this.app.workspace.revealLeaf(leaves[0]);
             return;
         }
         const leaf = this.app.workspace.getRightLeaf(false);
         if (leaf) {
             await leaf.setViewState({ type: VIEW_TYPE_REGEX_FIND_REPLACE, active: true });
-            this.app.workspace.revealLeaf(leaf);
+            await this.app.workspace.revealLeaf(leaf);
         }
     }
 
@@ -80,8 +79,9 @@ export default class RegexFindReplacePlugin extends Plugin {
                     revertedFiles++;
                     logger('Reverted file: ' + ch.path, LogLevel.DEBUG);
                 }
-            } catch (e: any) {
-                logger('Error reverting file ' + ch.path + ': ' + e.message, LogLevel.ERROR);
+            } catch (e: unknown) {
+                const message = e instanceof Error ? e.message : String(e);
+                logger('Error reverting file ' + ch.path + ': ' + message, LogLevel.ERROR);
             }
         }
 
@@ -150,8 +150,9 @@ export default class RegexFindReplacePlugin extends Plugin {
                         changes.push({ path: file.path, before: original, after: modified });
                     }
                 }
-            } catch (e: any) {
-                logger('Error processing file: ' + file.path + ' -> ' + e.message, LogLevel.ERROR);
+            } catch (e: unknown) {
+                const message = e instanceof Error ? e.message : String(e);
+                logger('Error processing file: ' + file.path + ' -> ' + message, LogLevel.ERROR);
             }
         }
 

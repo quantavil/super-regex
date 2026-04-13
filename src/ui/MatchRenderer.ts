@@ -56,7 +56,7 @@ export class MatchRenderer {
                 const target = e.target as HTMLElement;
                 if (target.classList.contains('match-checkbox') ||
                     target.classList.contains('match-apply-btn')) return;
-                this.view.navigateToMatch(match);
+                void this.view.navigateToMatch(match);
             };
 
             if (this.view.plugin.settings.replaceEnabled) {
@@ -84,10 +84,10 @@ export class MatchRenderer {
                     cls: 'match-apply-btn',
                     attr: { 'aria-label': 'Apply this replacement', title: 'Apply this replacement' }
                 });
-                applyBtn.innerHTML = '&#x276F;'; // ❯ chevron
+                applyBtn.textContent = '❯'; // chevron
                 applyBtn.onclick = (e) => {
                     e.stopPropagation();
-                    this.view.actionHandler.submitReplacements([match]);
+                    void this.view.actionHandler.submitReplacements([match]);
                 };
             }
         }
@@ -169,10 +169,13 @@ export class MatchRenderer {
 
             const copyBtn = wordsContainer.createEl('button', { text: 'Copy', cls: 'copy-not-found-btn' });
             copyBtn.onclick = () => {
-                navigator.clipboard.writeText(wordsText).then(() => {
+                void navigator.clipboard.writeText(wordsText).then(() => {
                     new Notice('Copied!');
                     copyBtn.setText('Copied!');
                     setTimeout(() => copyBtn.setText('Copy'), 2000);
+                }).catch(e => {
+                    new Notice('Failed to copy');
+                    console.error('Copy to clipboard failed', e);
                 });
             };
         } else if (notFoundContainer) {
